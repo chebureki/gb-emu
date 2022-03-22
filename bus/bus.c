@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define UNDEFINED_U8 0xff
+
 
 //TODO: there isn't really a need for this macro
 //inclusive between

@@ -4,11 +4,11 @@
 #ifndef GB_EMU_CPU_H
 #define GB_EMU_CPU_H
 
-#define HI_GET(a) (u8)((a&0xff00)>>8)
-#define LO_GET(a) (u8)(a&0x00ff)
+#define LO_GET(a) (u8)((a&0xff00)>>8)
+#define HI_GET(a) (u8)(a&0x00ff)
 
-#define HI_SET(a,v) a = (a&0x00ff) | (((u16)v)<<8)
-#define LO_SET(a,v) a = (a&0xff00) | ((u16)v)
+#define LO_SET(a,v) a = (a&0x00ff) | (((u16)v)<<8)
+#define HI_SET(a,v) a = (a&0xff00) | ((u16)v)
 
 #define CPU_CARRYFLAG_POS 4
 #define CPU_HALFCARRYFLAG_POS 5

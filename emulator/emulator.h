@@ -19,7 +19,6 @@
 
 typedef struct {
     u8 joypad;
-    u8 lcdc;
 }IORegisters;
 
 typedef struct {

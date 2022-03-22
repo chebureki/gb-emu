@@ -3,6 +3,8 @@
 #ifndef GB_EMU_BUS_H
 #define GB_EMU_BUS_H
 
+#define UNDEFINED_U8 0xff
+
 typedef u8(*BusReadFunc)(void *this, u16 addr,u16 abs_addr);
 typedef void(*BusWriteFunc)(void *this, u16 addr, u16 abs_addr, u8 val);
 

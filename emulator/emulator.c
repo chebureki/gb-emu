@@ -34,6 +34,8 @@ void emulator_echo_ram_write(void *_bus, u16 addr, u16 abs_addr, u8 val){
 u8 emulator_boot_rom_wrapper_read(void *_c, u16 addr, u16 abs_addr){
     if(addr < 0x100)
         return boot_rom[addr];
+
+    log_info("actual romread lol :%04x -> %02x",abs_addr,cartridge_bus_read(_c,addr,abs_addr));
     return cartridge_bus_read(_c,addr,abs_addr);
 }
 
@@ -58,18 +60,28 @@ u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
             } else{
                 log_error("returning no input because no mode is selected");
             }
-
             return d;
         }
-        case 0xFF41:{
-            u8 d = (e->io.lcdc)&0x78; //select writeable bytes
-            //TODO: coindence flag
-            //set modeflags
-            d|=e->ppu->state;
-            return d;
+        case PPU_REG_LCD_CONTROL:
+        case PPU_REG_LCD_STATUS:
+        case PPU_REG_SCY:
+        case PPU_REG_SCX:
+        case PPU_REG_LY:
+        case PPU_REG_LYC:
+        case PPU_REG_WX:
+        case PPU_REG_WY:
+        case PPU_REG_BGP:
+        case PPU_REG_OBP0:
+        case PPU_REG_OBP1:
+        case PPU_REG_DMA:
+        {
+            return ppu_register_read(e->ppu,addr,abs_addr);
+        }
+        default:{
+            log_error("unimplemented io read to %04x", abs_addr);
+            return UNDEFINED_U8;
         }
     }
-    log_error("unimplemented io read to %04x", abs_addr);
 }
 
 void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
@@ -80,12 +92,26 @@ void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
             e->io.joypad = val&0x30;
             return;
         }
-        case 0xFF41:{
-            e->io.lcdc = val&0x78; //only write writeable bits
-            return;
+
+        case PPU_REG_LCD_CONTROL:
+        case PPU_REG_LCD_STATUS:
+        case PPU_REG_SCY:
+        case PPU_REG_SCX:
+        case PPU_REG_LY:
+        case PPU_REG_LYC:
+        case PPU_REG_WX:
+        case PPU_REG_WY:
+        case PPU_REG_BGP:
+        case PPU_REG_OBP0:
+        case PPU_REG_OBP1:
+        case PPU_REG_DMA:
+        {
+            ppu_register_write(e->ppu,addr,abs_addr,val);
+        }
+        default:{
+            log_error("unimplemented io write to %04x", abs_addr);
         }
     }
-    log_error("unimplemented io write to %04x", abs_addr);
 }
 
 void emulator_map_memory(Emulator *emu){

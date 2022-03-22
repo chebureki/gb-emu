@@ -68,7 +68,7 @@
 #define FC() (((F())&CPU_CARRYFLAG)>>CPU_CARRYFLAG_POS)
 
 
-#define F_TOGGLE(v,f,p) F_SET(F()&(~f)|((u8)OZ(v)<<((u8)p)))
+#define F_TOGGLE(v,f,p) F_SET(F()&(~(f))|((u8)OZ(v)<<((u8)p)))
 #define FZ_SET(v) F_TOGGLE(v,CPU_ZEROFLAG,CPU_ZEROFLAG_POS)
 #define FN_SET(v) F_TOGGLE(v,CPU_SUBTRACTIONFLAG,CPU_SUBTRACTIONFLAG_POS)
 #define FH_SET(v) F_TOGGLE(v,CPU_HALFCARRYFLAG,CPU_HALFCARRYFLAG_POS)
@@ -88,20 +88,24 @@ void stack_push_u8(CPU *cpu, u8 d){
     SP_SET(SP()-1);
 }
 
-void stack_push_u16(CPU *cpu, u16 d){
-    M_SET(SP(),d&0xff);
-    M_SET(SP(),d>>8);
-    SP_SET(SP()-2);
-}
-
 u8 stack_pop_u8(CPU *cpu){
     SP_SET(SP()+1);
-    return M_GET(SP());
+    u8 v = M_GET(SP());
+    return v;
 }
 
+void stack_push_u16(CPU *cpu, u16 d){
+    //little endian aren't we?
+    stack_push_u8(cpu,(d&0xff00)>>8);
+    stack_push_u8(cpu,(d&0x00ff));
+}
+
+
 u16 stack_pop_u16(CPU *cpu){
-    SP_SET(SP()+2);
-    return (u16)M_GET(SP()) | ((u16)M_GET(SP()) << 8);
+    u16 v = 0;
+    v |= stack_pop_u8(cpu);
+    v |= ((u16)stack_pop_u8(cpu))<<8;
+    return v;
 }
 
 //gimme generics
@@ -141,7 +145,10 @@ void ins_03(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //INC B | Z:Z N:0 H:H C:-
 void ins_04(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(B(),1));
+    B_SET(B()+1);
+    FZ_SET(B()==0);
+    FN_SET(0);
 }
 
 //DEC B | Z:Z N:1 H:H C:-
@@ -222,7 +229,7 @@ void ins_12(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //INC DE | Z:- N:- H:- C:-
 void ins_13(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    DE_SET(DE()+1);
 }
 
 //INC D | Z:Z N:0 H:H C:-
@@ -244,15 +251,15 @@ void ins_16(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RLA  | Z:0 N:0 H:0 C:C
 void ins_17(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 o = A();
-    u8 v = rotl_u8(o,1);
-    A_SET(v);
-    FZ_SET(0);FN_SET(0);FH_SET(0);FH_SET(o&80);
+    u8 c = FC();
+    FC_SET(A()&0x80);
+    A_SET((A()<<1)|c);
+    FZ_SET(0);FN_SET(0);FH_SET(0);
 }
 
 //JR r8 | Z:- N:- H:- C:-
 void ins_18(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    PC_SET(PC()+R8());
 }
 
 //ADD HL,DE | Z:- N:0 H:H C:C
@@ -305,12 +312,12 @@ void ins_21(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){ HL_SET(JU16(a0, a1));}
 //LD (HL+),A | Z:- N:- H:- C:-
 void ins_22(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     M_SET(HL(),A());
-    HL_SET(HL()-1);
+    HL_SET(HL()+1);
 }
 
 //INC HL | Z:- N:- H:- C:-
 void ins_23(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    HL_SET(HL()+1);
 }
 
 //INC H | Z:Z N:0 H:H C:-
@@ -337,7 +344,9 @@ void ins_27(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //JR Z,r8 | Z:- N:- H:- C:-
 void ins_28(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(FZ()){
+        PC_SET(PC()+R8());
+    }
 }
 
 //ADD HL,HL | Z:- N:0 H:H C:C
@@ -1181,7 +1190,7 @@ void ins_C8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RET  | Z:- N:- H:- C:-
 void ins_C9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    PC_SET(stack_pop_u16(cpu));
 }
 
 //JP Z,a16 | Z:- N:- H:- C:-
@@ -1569,106 +1578,134 @@ void ins_CB_0F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RL B | Z:Z N:0 H:0 C:C
 void ins_CB_10(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 o = B();
-    u8 v = rotl_u8(o,1);
-    B_SET(v);
-    FZ_SET(v==0);FN_SET(0);FH_SET(0);FC_SET(o&80);
+    u8 c = FC();
+    FC_SET(B()&0x80);
+    B_SET((B()<<1)|c);
+    FZ_SET(B()==0);FN_SET(0);FH_SET(0);
 }
 
 //RL C | Z:Z N:0 H:0 C:C
 void ins_CB_11(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 o = C();
-    u8 v = rotl_u8(o,1);
-    C_SET(v);
-    FZ_SET(v==0);FN_SET(0);FH_SET(0);FC_SET(o&80);
+    u8 c = FC();
+    FC_SET(C()&0x80);
+    C_SET((C()<<1)|c);
+    FZ_SET(C()==0);FN_SET(0);FH_SET(0);
 }
 
 //RL D | Z:Z N:0 H:0 C:C
 void ins_CB_12(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 o = D();
-    u8 v = rotl_u8(o,1);
-    D_SET(v);
-    FZ_SET(v==0);FN_SET(0);FH_SET(0);FC_SET(o&80);
+    u8 c = FC();
+    FC_SET(D()&0x80);
+    D_SET((D()<<1)|c);
+    FZ_SET(D()==0);FN_SET(0);FH_SET(0);
 }
 
 //RL E | Z:Z N:0 H:0 C:C
 void ins_CB_13(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 o = E();
-    u8 v = rotl_u8(o,1);
-    E_SET(v);
-    FZ_SET(v==0);FN_SET(0);FH_SET(0);FC_SET(o&80);
+    u8 c = FC();
+    FC_SET(E()&0x80);
+    E_SET((E()<<1)|c);
+    FZ_SET(E()==0);FN_SET(0);FH_SET(0);
 }
 
 //RL H | Z:Z N:0 H:0 C:C
 void ins_CB_14(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 o = H();
-    u8 v = rotl_u8(o,1);
-    H_SET(v);
-    FZ_SET(v==0);FN_SET(0);FH_SET(0);FC_SET(o&80);
+    u8 c = FC();
+    FC_SET(H()&0x80);
+    H_SET((H()<<1)|c);
+    FZ_SET(H()==0);FN_SET(0);FH_SET(0);
 }
 
 //RL L | Z:Z N:0 H:0 C:C
 void ins_CB_15(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 o = L();
-    u8 v = rotl_u8(o,1);
-    L_SET(v);
-    FZ_SET(v==0);FN_SET(0);FH_SET(0);FC_SET(o&80);
+    u8 c = FC();
+    FC_SET(L()&0x80);
+    L_SET((L()<<1)|c);
+    FZ_SET(L()==0);FN_SET(0);FH_SET(0);
 }
 
 //RL (HL) | Z:Z N:0 H:0 C:C
 void ins_CB_16(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 o = M_GET(HL());
-    u8 v = rotl_u8(o,1);
+    u8 c = FC();
+    u8 m = M_GET(HL());
+    u8 v = (m<<1)|c;
+    FC_SET(m&0x80);
     M_SET(HL(),v);
-    FZ_SET(v==0);FN_SET(0);FH_SET(0);FC_SET(o&80);
+    FZ_SET(v==0);FN_SET(0);FH_SET(0);
 }
 
 //RL A | Z:Z N:0 H:0 C:C
 void ins_CB_17(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 o = A();
-    u8 v = rotl_u8(o,1);
-    A_SET(v);
-    FZ_SET(v==0);FN_SET(0);FH_SET(0);FC_SET(o&80);
+    u8 c = FC();
+    FC_SET(A()&0x80);
+    A_SET((A()<<1)|c);
+    FZ_SET(A()==0);FN_SET(0);FH_SET(0);
 }
 
 //RR B | Z:Z N:0 H:0 C:C
 void ins_CB_18(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 c = FC()<<7;
+    FC_SET(B()&1);
+    B_SET((B()>>1)|c);
+    FZ_SET(B()==0);FN_SET(0);FH_SET(0);
 }
 
 //RR C | Z:Z N:0 H:0 C:C
 void ins_CB_19(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 c = FC()<<7;
+    FC_SET(C()&1);
+    C_SET((C()>>1)|c);
+    FZ_SET(C()==0);FN_SET(0);FH_SET(0);
 }
 
 //RR D | Z:Z N:0 H:0 C:C
 void ins_CB_1A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 c = FC()<<7;
+    FC_SET(D()&1);
+    D_SET((D()>>1)|c);
+    FZ_SET(D()==0);FN_SET(0);FH_SET(0);
 }
 
 //RR E | Z:Z N:0 H:0 C:C
 void ins_CB_1B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 c = FC()<<7;
+    FC_SET(E()&1);
+    E_SET((E()>>1)|c);
+    FZ_SET(E()==0);FN_SET(0);FH_SET(0);
 }
 
 //RR H | Z:Z N:0 H:0 C:C
 void ins_CB_1C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 c = FC()<<7;
+    FC_SET(H()&1);
+    H_SET((H()>>1)|c);
+    FZ_SET(H()==0);FN_SET(0);FH_SET(0);
 }
 
 //RR L | Z:Z N:0 H:0 C:C
 void ins_CB_1D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 c = FC()<<7;
+    FC_SET(L()&1);
+    L_SET((L()>>1)|c);
+    FZ_SET(L()==0);FN_SET(0);FH_SET(0);
 }
 
 //RR (HL) | Z:Z N:0 H:0 C:C
 void ins_CB_1E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 c = FC()<<7;
+    u8 m = M_GET(HL());
+    FC_SET(m&1);
+    m = (m>>1)|c;
+    M_SET(HL(),m);
+    FZ_SET(m==0);FN_SET(0);FH_SET(0);
 }
 
 //RR A | Z:Z N:0 H:0 C:C
 void ins_CB_1F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 c = FC()<<7;
+    FC_SET(A()&1);
+    A_SET((A()>>1)|c);
+    FZ_SET(A()==0);FN_SET(0);FH_SET(0);
 }
 
 //SLA B | Z:Z N:0 H:0 C:C
@@ -1833,32 +1870,32 @@ void ins_CB_3F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //BIT 0,B | Z:Z N:0 H:1 C:-
 void ins_CB_40(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(B()&(1<<0)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(B()&(1<<0))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 0,C | Z:Z N:0 H:1 C:-
 void ins_CB_41(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(C()&(1<<0)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(C()&(1<<0))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 0,D | Z:Z N:0 H:1 C:-
 void ins_CB_42(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(D()&(1<<0)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(D()&(1<<0))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 0,E | Z:Z N:0 H:1 C:-
 void ins_CB_43(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(E()&(1<<0)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(E()&(1<<0))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 0,H | Z:Z N:0 H:1 C:-
 void ins_CB_44(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(H()&(1<<0)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(H()&(1<<0))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 0,L | Z:Z N:0 H:1 C:-
 void ins_CB_45(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(L()&(1<<0)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(L()&(1<<0))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 0,(HL) | Z:Z N:0 H:1 C:-
@@ -1868,37 +1905,37 @@ void ins_CB_46(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //BIT 0,A | Z:Z N:0 H:1 C:-
 void ins_CB_47(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(A()&(1<<0)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(A()&(1<<0))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 1,B | Z:Z N:0 H:1 C:-
 void ins_CB_48(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(B()&(1<<1)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(B()&(1<<1))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 1,C | Z:Z N:0 H:1 C:-
 void ins_CB_49(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(C()&(1<<1)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(C()&(1<<1))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 1,D | Z:Z N:0 H:1 C:-
 void ins_CB_4A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(D()&(1<<1)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(D()&(1<<1))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 1,E | Z:Z N:0 H:1 C:-
 void ins_CB_4B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(E()&(1<<1)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(E()&(1<<1))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 1,H | Z:Z N:0 H:1 C:-
 void ins_CB_4C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(H()&(1<<1)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(H()&(1<<1))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 1,L | Z:Z N:0 H:1 C:-
 void ins_CB_4D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(L()&(1<<1)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(L()&(1<<1))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 1,(HL) | Z:Z N:0 H:1 C:-
@@ -1908,37 +1945,37 @@ void ins_CB_4E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //BIT 1,A | Z:Z N:0 H:1 C:-
 void ins_CB_4F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(A()&(1<<1)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(A()&(1<<1))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 2,B | Z:Z N:0 H:1 C:-
 void ins_CB_50(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(B()&(1<<2)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(B()&(1<<2))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 2,C | Z:Z N:0 H:1 C:-
 void ins_CB_51(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(C()&(1<<2)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(C()&(1<<2))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 2,D | Z:Z N:0 H:1 C:-
 void ins_CB_52(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(D()&(1<<2)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(D()&(1<<2))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 2,E | Z:Z N:0 H:1 C:-
 void ins_CB_53(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(E()&(1<<2)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(E()&(1<<2))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 2,H | Z:Z N:0 H:1 C:-
 void ins_CB_54(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(H()&(1<<2)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(H()&(1<<2))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 2,L | Z:Z N:0 H:1 C:-
 void ins_CB_55(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(L()&(1<<2)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(L()&(1<<2))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 2,(HL) | Z:Z N:0 H:1 C:-
@@ -1948,37 +1985,37 @@ void ins_CB_56(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //BIT 2,A | Z:Z N:0 H:1 C:-
 void ins_CB_57(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(A()&(1<<2)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(A()&(1<<2))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 3,B | Z:Z N:0 H:1 C:-
 void ins_CB_58(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(B()&(1<<3)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(B()&(1<<3))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 3,C | Z:Z N:0 H:1 C:-
 void ins_CB_59(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(C()&(1<<3)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(C()&(1<<3))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 3,D | Z:Z N:0 H:1 C:-
 void ins_CB_5A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(D()&(1<<3)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(D()&(1<<3))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 3,E | Z:Z N:0 H:1 C:-
 void ins_CB_5B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(E()&(1<<3)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(E()&(1<<3))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 3,H | Z:Z N:0 H:1 C:-
 void ins_CB_5C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(H()&(1<<3)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(H()&(1<<3))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 3,L | Z:Z N:0 H:1 C:-
 void ins_CB_5D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(L()&(1<<3)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(L()&(1<<3))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 3,(HL) | Z:Z N:0 H:1 C:-
@@ -1988,37 +2025,37 @@ void ins_CB_5E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //BIT 3,A | Z:Z N:0 H:1 C:-
 void ins_CB_5F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(A()&(1<<3)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(A()&(1<<3))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 4,B | Z:Z N:0 H:1 C:-
 void ins_CB_60(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(B()&(1<<4)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(B()&(1<<4))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 4,C | Z:Z N:0 H:1 C:-
 void ins_CB_61(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(C()&(1<<4)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(C()&(1<<4))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 4,D | Z:Z N:0 H:1 C:-
 void ins_CB_62(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(D()&(1<<4)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(D()&(1<<4))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 4,E | Z:Z N:0 H:1 C:-
 void ins_CB_63(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(E()&(1<<4)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(E()&(1<<4))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 4,H | Z:Z N:0 H:1 C:-
 void ins_CB_64(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(H()&(1<<4)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(H()&(1<<4))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 4,L | Z:Z N:0 H:1 C:-
 void ins_CB_65(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(L()&(1<<4)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(L()&(1<<4))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 4,(HL) | Z:Z N:0 H:1 C:-
@@ -2028,37 +2065,37 @@ void ins_CB_66(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //BIT 4,A | Z:Z N:0 H:1 C:-
 void ins_CB_67(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(A()&(1<<4)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(A()&(1<<4))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 5,B | Z:Z N:0 H:1 C:-
 void ins_CB_68(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(B()&(1<<5)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(B()&(1<<5))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 5,C | Z:Z N:0 H:1 C:-
 void ins_CB_69(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(C()&(1<<5)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(C()&(1<<5))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 5,D | Z:Z N:0 H:1 C:-
 void ins_CB_6A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(D()&(1<<5)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(D()&(1<<5))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 5,E | Z:Z N:0 H:1 C:-
 void ins_CB_6B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(E()&(1<<5)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(E()&(1<<5))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 5,H | Z:Z N:0 H:1 C:-
 void ins_CB_6C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(H()&(1<<5)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(H()&(1<<5))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 5,L | Z:Z N:0 H:1 C:-
 void ins_CB_6D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(L()&(1<<5)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(L()&(1<<5))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 5,(HL) | Z:Z N:0 H:1 C:-
@@ -2068,37 +2105,37 @@ void ins_CB_6E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //BIT 5,A | Z:Z N:0 H:1 C:-
 void ins_CB_6F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(A()&(1<<5)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(A()&(1<<5))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 6,B | Z:Z N:0 H:1 C:-
 void ins_CB_70(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(B()&(1<<6)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(B()&(1<<6))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 6,C | Z:Z N:0 H:1 C:-
 void ins_CB_71(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(C()&(1<<6)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(C()&(1<<6))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 6,D | Z:Z N:0 H:1 C:-
 void ins_CB_72(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(D()&(1<<6)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(D()&(1<<6))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 6,E | Z:Z N:0 H:1 C:-
 void ins_CB_73(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(E()&(1<<6)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(E()&(1<<6))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 6,H | Z:Z N:0 H:1 C:-
 void ins_CB_74(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(H()&(1<<6)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(H()&(1<<6))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 6,L | Z:Z N:0 H:1 C:-
 void ins_CB_75(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(L()&(1<<6)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(L()&(1<<6))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 6,(HL) | Z:Z N:0 H:1 C:-
@@ -2108,37 +2145,37 @@ void ins_CB_76(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //BIT 6,A | Z:Z N:0 H:1 C:-
 void ins_CB_77(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(A()&(1<<6)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(A()&(1<<6))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 7,B | Z:Z N:0 H:1 C:-
 void ins_CB_78(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(B()&(1<<7)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(B()&(1<<7))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 7,C | Z:Z N:0 H:1 C:-
 void ins_CB_79(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(C()&(1<<7)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(C()&(1<<7))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 7,D | Z:Z N:0 H:1 C:-
 void ins_CB_7A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(D()&(1<<7)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(D()&(1<<7))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 7,E | Z:Z N:0 H:1 C:-
 void ins_CB_7B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(E()&(1<<7)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(E()&(1<<7))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 7,H | Z:Z N:0 H:1 C:-
 void ins_CB_7C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(H()&(1<<7)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(H()&(1<<7))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 7,L | Z:Z N:0 H:1 C:-
 void ins_CB_7D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(L()&(1<<7)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(L()&(1<<7))); FN_SET(0); FH_SET(1);
 }
 
 //BIT 7,(HL) | Z:Z N:0 H:1 C:-
@@ -2148,7 +2185,7 @@ void ins_CB_7E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //BIT 7,A | Z:Z N:0 H:1 C:-
 void ins_CB_7F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(A()&(1<<7)); FN_SET(0); FH_SET(1);
+    FZ_SET(!(A()&(1<<7))); FN_SET(0); FH_SET(1);
 }
 
 //RES 0,B | Z:- N:- H:- C:-

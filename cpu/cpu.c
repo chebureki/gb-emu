@@ -21,6 +21,8 @@ void cpu_clock(CPU *cpu){
     else
         cpu->extra_cycles = cpu_next_ins(cpu);
 }
+
+#include <unistd.h>
 int cpu_next_ins(CPU* cpu){
 
     //an instruction is 4 bytes long at most
@@ -46,7 +48,12 @@ int cpu_next_ins(CPU* cpu){
 
     char debug[16];
     sprintf(debug,ins->mnemonic_format, bytes[1],bytes[2],bytes[3]);
+    if(cpu->PC >=0xc){
+
+        //usleep(1000000);
+    }
     //log_debug("pc %04x: %s AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",cpu->PC,debug,cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP);
+
     cpu->PC+=ins->length;
     ins->callback(cpu,bytes[0],bytes[1],bytes[2],bytes[3]);
 
