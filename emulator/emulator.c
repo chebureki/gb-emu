@@ -1,5 +1,7 @@
 #include "emulator.h"
 
+#define REG_UNMAP_BOOT_ROM 0xFF50
+
 //TODO: JESUS FUCKING CHRIST REMOVE DIS ILLEGAL SINNERY
 const u8 boot_rom[256] = {
         0x31, 0xfe, 0xff, 0xaf, 0x21, 0xff, 0x9f, 0x32, 0xcb, 0x7c, 0x20, 0xfb, 0x21, 0x26, 0xff, 0xe,
@@ -35,8 +37,14 @@ u8 emulator_boot_rom_wrapper_read(void *_c, u16 addr, u16 abs_addr){
     if(addr < 0x100)
         return boot_rom[addr];
 
-    //log_info("actual romread lol :%04x -> %02x",abs_addr,cartridge_bus_read(_c,addr,abs_addr));
     return cartridge_bus_read(_c,addr,abs_addr);
+}
+
+
+void emulator_unmap_boot_rom(Emulator *emulator){
+    log_debug("unmapping boot rom");
+    bus_unmap(emulator->bus,0x0000,0x3FFF);
+    bus_map(emulator->bus,0x0000,0x3FFF,emulator->cartridge,cartridge_bus_read,cartridge_bus_write);
 }
 
 u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
@@ -77,6 +85,7 @@ u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
         {
             return ppu_register_read(e->ppu,addr,abs_addr);
         }
+        case REG_UNMAP_BOOT_ROM: return UNDEFINED_U8; //TODO: is this ever read?
         default:{
             log_error("unimplemented io read to %04x", abs_addr);
             return UNDEFINED_U8;
@@ -107,6 +116,11 @@ void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
         case PPU_REG_DMA:
         {
             ppu_register_write(e->ppu,addr,abs_addr,val);
+            break;
+        }
+        case REG_UNMAP_BOOT_ROM: {
+            if(val)
+                emulator_unmap_boot_rom(e);
             break;
         }
         default:{

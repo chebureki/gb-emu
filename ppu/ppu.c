@@ -7,13 +7,15 @@
 #define LCD_TRANSFER_CLOCKS 172
 #define OAM_SEARCH_CLOCKS 80
 
+#define MAP_WIDTH 256
+#define MAP_HEIGHT 256
+
 //since we have 4 shades, we only need 2 bits
 // 160*144*2 bits = 5760 bytes
-/*
+
 u8 color_from_palette(u8 p, u8 i){
     return (p&(3<<(2*i)))>>(2*i);
 }
-*/
 
 enum PPUState{
     HBLANK=0,
@@ -91,26 +93,22 @@ u8 vram_bus_read(void *_ppu, u16 addr, u16 abs_addr){
 void vram_bus_write(void *_ppu, u16 addr, u16 abs_addr, u8 val){
     //TODO: hinder if needed
     PPU *ppu = (PPU*)_ppu;
-    if(0x9800<=abs_addr){
-        log_info("yo tile data? at: %04x : %d val",abs_addr,val);
-    }
     //if (ppu->state == LCD_DATA_TRANSFER)
-    //    return;
-    //log_error("write to vram at %04x",abs_addr);
+    //   return;
     //log_info("writing %02x to %04x / %04x",val,addr,abs_addr);
     ppu->vram[addr] = val;
 }
 
 u8 oam_bus_read(void *_ppu, u16 addr, u16 abs_addr){
     PPU *ppu = (PPU*)_ppu;
-    if(ppu->state == OAM_SEARCH)
-        return UNDEFINED_U8;
+    //if(ppu->state == OAM_SEARCH)
+    //    return UNDEFINED_U8;
     return ppu->oam[addr];
 }
 void oam_bus_write(void *_ppu, u16 addr, u16 abs_addr, u8 val){
     PPU *ppu = (PPU*)_ppu;
-    if(ppu->state == OAM_SEARCH)
-        return;
+    //if(ppu->state == OAM_SEARCH)
+    //    return;
     ppu->oam[addr] = val;
 }
 
@@ -152,8 +150,9 @@ void set_pixel(u8 *display, u8 x, u8 y, u8 v){
     v&=3; //only select two bits
     int offset = ((y*VIDEO_WIDTH)+x)>>2;
     int in_byte_pos = ((y*VIDEO_WIDTH) +x)&3;
-    int pixel_patch = (v<<((3-in_byte_pos)*2));
-    display[offset] =  (display[offset]&~pixel_patch) | pixel_patch;
+    int v_patch = (v<<((3-in_byte_pos)*2));
+    int pixel_patch = (3<<((3-in_byte_pos)*2));
+    display[offset] =  (display[offset]&~pixel_patch) | v_patch;
 }
 
 //return a DMA vram address, don't use it in any bus reads!!!
@@ -192,7 +191,7 @@ void ppu_oam_search(PPU *ppu){
 
     //TODO: this creates +1 cycle
     //fuck it, no cycles for you
-    //ppu->extra_cycles=OAM_SEARCH_CLOCKS;
+    ppu->extra_cycles=OAM_SEARCH_CLOCKS;
     ppu->state = LCD_DATA_TRANSFER;
 }
 
@@ -211,8 +210,8 @@ u8 pixel_from_tile_bytes(u8 low, u8 high, int x){
 }
 
 u8 ppu_get_bg_pixel(PPU *ppu, int wx, int wy){
-    int tile_pos = (wx/8)+((wy/8)*(VIDEO_WIDTH/8));
-    //log_info("%d %d => %d",wx,wy,tile_pos);
+    int tile_pos = (wx/8)+((wy/8)*(MAP_WIDTH/8));
+    //log_info("%04x start",ppu_get_bg_map_start(ppu));
     int tile_i = ppu->vram[ppu_get_bg_map_start(ppu)+tile_pos];
     int tile_offset = bg_win_tile_offset(ppu,tile_i);
     u8 low = ppu->vram[tile_offset + (2*(wy&7))+0];
@@ -233,18 +232,26 @@ u8 ppu_get_obj_pixel(PPU *ppu, int wx, int wy){
     return pixel;
 }
 
+u8 ppu_wx(PPU *ppu,int sx){
+    return (ppu->scx + sx)%MAP_WIDTH;
+}
+
+u8 ppu_wy(PPU *ppu, int sy){
+    return (ppu->ly+ppu->scy)%MAP_HEIGHT;
+}
 
 void ppu_lcd_data_transfer(PPU *ppu){
-    int wy = ppu->ly+ppu->scy;
-    log_info("wy: %d %d",ppu->ly,wy);
+    int wy = ppu_wy(ppu,ppu->ly);
     for(int sx=0;sx<VIDEO_WIDTH;sx++){
-        int wx = ppu->scx + sx;
+        int wx = ppu_wx(ppu,sx);
         u8 bg_pixel = ppu_get_bg_pixel(ppu,wx,wy);
-        set_pixel(ppu->display,sx,ppu->ly,bg_pixel);
+
+        u8 col = color_from_palette(ppu->bg_palette,bg_pixel);
+        set_pixel(ppu->display,sx,ppu->ly,col);
     }
 
     ppu->ly++;
-    ppu->extra_cycles=456;
+    ppu->extra_cycles=LCD_TRANSFER_CLOCKS;
     if(ppu->ly>=144) {
         ppu->state = VBLANK;
     }
@@ -256,21 +263,15 @@ void ppu_hblank(PPU *ppu){
 }
 
 void ppu_vblank(PPU *ppu){
-    ppu->extra_cycles=OAM_SEARCH_CLOCKS+LCD_TRANSFER_CLOCKS+HBLANK_CLOCKS;
     ppu->ly++;
     if(ppu->ly >153){
         ppu->state = OAM_SEARCH;
         ppu->ly = 0;
+
+    }else{
+        ppu->extra_cycles=OAM_SEARCH_CLOCKS+LCD_TRANSFER_CLOCKS+HBLANK_CLOCKS;
     }
 }
-/*
-u16 ppu_get_bg_map_start(PPU *ppu){
-    if(ppu->lcd_control & BG_TILE_MAP_DISPLAY_SELECT_9C00_9FFF)
-        return 0x1C00;
-    else
-        return 0x1800;
-}
- */
 
 void ppu_clock(PPU *ppu){
     if(ppu->extra_cycles) {

@@ -28,7 +28,7 @@ void bus_close(Bus *bus);
 
 //returns 1 if successful
 int bus_map(Bus *bus, u16 from, u16 to, void *this, BusReadFunc read_func, BusWriteFunc write_func);
-
+int bus_unmap(Bus *bus, u16 from, u16 to);
 void bus_write(Bus *bus, u16 addr, u8 val);
 u8 bus_read(Bus *bus, u16 addr);
 

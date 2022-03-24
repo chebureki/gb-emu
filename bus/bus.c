@@ -20,13 +20,14 @@ _Bool bus_has_listener_conflict(Bus *b, u16 from, u16 to){
 int bus_unmap(Bus *bus, u16 from, u16 to){
     for(int li=0;li<bus->head;li++){
         if (bus->listeners[li].from == from && bus->listeners[li].to == to){
+            bus->head--;
             bus->listeners[li].from = bus->listeners[bus->head].from;
             bus->listeners[li].to = bus->listeners[bus->head].to;
             bus->listeners[li].this = bus->listeners[bus->head].this;
             bus->listeners[li].read_func = bus->listeners[bus->head].read_func;
             bus->listeners[li].write_func = bus->listeners[bus->head].write_func;
 
-            bus->head--;
+            log_debug("removed bus region %04x-%04x",from,to);
             return 1;
         }
     }
@@ -36,13 +37,11 @@ int bus_unmap(Bus *bus, u16 from, u16 to){
 
 int bus_map(Bus *bus, u16 from, u16 to, void *this, BusReadFunc read_func, BusWriteFunc write_func){
     if(bus->head>=BUS_STACK_CAP){
-        log_error("exceeded bus listener cap");
-        return 0;
+        log_fatal("exceeded bus listener cap");
     }
 
     if(bus_has_listener_conflict(bus,from,to)){
-        log_error("listening conflict in bus for range %x to %x",from,to);
-        return 0;
+        log_fatal("listening conflict in bus for range %x to %x",from,to);
     }
 
     bus->listeners[bus->head++] = (BusListener){.from=from,.to=to,.this=this,.read_func=read_func, .write_func=write_func};
