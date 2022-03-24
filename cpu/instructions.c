@@ -2,7 +2,7 @@
 #include "../common/log.h"
 #include "../common/bitwise.h"
 
-#define UNIMPLEMENTED() log_fatal("UNIMPLEMENTED INSTRUCTION %02x%02x",ins,a0)
+#define UNIMPLEMENTED() log_fatal("PC: %04x UNIMPLEMENTED INSTRUCTION %02x%02x",cpu->PC,ins,a0)
 
 //TODO: whats the difference between rl r and rlc r?
 
@@ -322,7 +322,10 @@ void ins_23(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //INC H | Z:Z N:0 H:H C:-
 void ins_24(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(H(),1));FN_SET(0);
+    H_SET(H()+1);
+    FZ_SET(H()==0);
+
 }
 
 //DEC H | Z:Z N:1 H:H C:-
@@ -824,7 +827,11 @@ void ins_85(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //ADD A,(HL) | Z:Z N:0 H:H C:C
 void ins_86(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 m = M_GET(HL());
+    FH_SET(CARRY_4(A(),m));
+    FC_SET(CARRY_8(A(),m));
+    FN_SET(0);
+    A_SET(A()+m);
 }
 
 //ADD A,A | Z:Z N:0 H:H C:C
@@ -874,7 +881,11 @@ void ins_8F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //SUB B | Z:Z N:1 H:H C:C
 void ins_90(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FC_SET(CARRY_8_SUB(A(),B()));
+    FH_SET(CARRY_4_SUB(A(),B()));
+    FN_SET(1);
+    A_SET(A()-B());
+    FZ_SET(B()==0);
 }
 
 //SUB C | Z:Z N:1 H:H C:C
@@ -1160,7 +1171,7 @@ void ins_C2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //JP a16 | Z:- N:- H:- C:-
 void ins_C3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    PC_SET(A16());
 }
 
 //CALL NZ,a16 | Z:- N:- H:- C:-

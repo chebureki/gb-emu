@@ -35,7 +35,7 @@ u8 emulator_boot_rom_wrapper_read(void *_c, u16 addr, u16 abs_addr){
     if(addr < 0x100)
         return boot_rom[addr];
 
-    log_info("actual romread lol :%04x -> %02x",abs_addr,cartridge_bus_read(_c,addr,abs_addr));
+    //log_info("actual romread lol :%04x -> %02x",abs_addr,cartridge_bus_read(_c,addr,abs_addr));
     return cartridge_bus_read(_c,addr,abs_addr);
 }
 
@@ -107,6 +107,7 @@ void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
         case PPU_REG_DMA:
         {
             ppu_register_write(e->ppu,addr,abs_addr,val);
+            break;
         }
         default:{
             log_error("unimplemented io write to %04x", abs_addr);
@@ -128,10 +129,10 @@ void emulator_map_memory(Emulator *emu){
     //TODO
 
     //C000	CFFF	4 KiB Work RAM (WRAM)
-    bus_map(emu->bus, 0xC000, 0xCFFF, emu->workram, workram_bus_read, workram_bus_write);
+    bus_map(emu->bus, 0xC000, 0xCFFF, emu->workram_1, workram_bus_read, workram_bus_write);
 
     //D000	DFFF	4 KiB Work RAM (WRAM)	In CGB mode, switchable bank 1~7
-    //TODO
+    bus_map(emu->bus, 0xD000, 0xDFFF, emu->workram_2, workram_bus_read, workram_bus_write);
 
     //E000	FDFF	Mirror of C000~DDFF (ECHO RAM)	Nintendo says use of this area is prohibited.
     bus_map(emu->bus, 0xE000, 0xFDFF, emu->bus, emulator_echo_ram_read, emulator_echo_ram_write);
@@ -158,7 +159,8 @@ Emulator *emulator_new(Cartridge *cartridge){
     emu->bus = bus_new();
     emu->cpu = cpu_new(emu->bus);
     emu->ppu = ppu_new();
-    emu->workram = workram_new();
+    emu->workram_1 = workram_new();
+    emu->workram_2 = workram_new();
     emu->cartridge = cartridge;
     emu->highram = highram_new();
 
@@ -167,7 +169,8 @@ Emulator *emulator_new(Cartridge *cartridge){
 }
 
 void emulator_close(Emulator *emu){
-    workram_close(emu->workram);
+    workram_close(emu->workram_1);
+    workram_close(emu->workram_2);
     bus_close(emu->bus);
     highram_close(emu->highram);
     cpu_close(emu->cpu);

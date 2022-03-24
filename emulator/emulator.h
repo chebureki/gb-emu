@@ -26,7 +26,8 @@ typedef struct {
     Bus *bus;
     CPU *cpu;
     PPU *ppu;
-    WorkRAM *workram;
+    WorkRAM *workram_1;
+    WorkRAM *workram_2;
     HighRAM *highram;
 
     //we only have a ref, don't own it
