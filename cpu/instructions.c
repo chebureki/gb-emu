@@ -3,6 +3,7 @@
 #include "../common/bitwise.h"
 
 #define UNIMPLEMENTED() log_fatal("PC: %04x UNIMPLEMENTED INSTRUCTION %02x%02x",cpu->PC,ins,a0)
+#define ILLEGAL_INS() log_fatal("PC: %04x reached illegal instruction %02x%02x",cpu->PC,ins,a0);
 
 //TODO: whats the difference between rl r and rlc r?
 
@@ -79,9 +80,19 @@
 #define CARRY_8(a,b) (((u16)((u8)a)+(u16)((u8)b))>0xff)
 #define CARRY_16(a,b) (((u32)a+(u32)b)>0xffff)
 
-#define CARRY_4_SUB(a,b) (((s16)a+(s16)b)<0)
-#define CARRY_8_SUB(a,b) (((s16)a+(s16)b)<0)
-#define CARRY_16_SUB(a,b) (((s32)a+(s32)b)<0)
+#define CARRY_4C(a,b,c) (((u16)(a&0x0f)+(u16)(b&0x0f)+(u16)(c&0x0f))>0x0f)
+#define CARRY_8C(a,b,c) (((u16)((u8)a)+(u16)((u8)b)+(u16)((u8)c))>0xff)
+#define CARRY_16C(a,b,c) (((u32)a+(u32)b+(u32)c)>0xffff)
+
+#define CARRY_4_SUB(a,b) (((s16)a-(s16)b)<0)
+#define CARRY_8_SUB(a,b) (((s16)a-(s16)b)<0)
+#define CARRY_16_SUB(a,b) (((s32)a-(s32)b)<0)
+
+#define CARRY_4_SUBC(a,b,c) (((s16)a-(s16)b-(s16)c)<0)
+#define CARRY_8_SUBC(a,b,c) (((s16)a-(s16)b-(s16)c)<0)
+#define CARRY_16_SUBC(a,b,c) (((s32)a-(s32)b-(s32)c)<0)
+
+#define SWAP8(a) ((u8)((a&0xf0)>>4)) | ((u8)((a&0x0f)<<4))
 
 void stack_push_u8(CPU *cpu, u8 d){
     M_SET(SP(),d);
@@ -140,7 +151,7 @@ void ins_02(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //INC BC | Z:- N:- H:- C:-
 void ins_03(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    BC_SET(BC()+1);
 }
 
 //INC B | Z:Z N:0 H:H C:-
@@ -165,7 +176,10 @@ void ins_06(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RLCA  | Z:0 N:0 H:0 C:C
 void ins_07(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 o = A();
+    u8 v = rotl_u8(o,1);
+    A_SET(v);
+    FZ_SET(v==0);FN_SET(0);FH_SET(0);FC_SET(o&80);
 }
 
 //LD (a16),SP | Z:- N:- H:- C:-
@@ -175,7 +189,10 @@ void ins_08(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //ADD HL,BC | Z:- N:0 H:H C:C
 void ins_09(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(HL(),BC()));
+    FC_SET(CARRY_16(HL(),BC()));
+    FN_SET(0);
+    HL_SET(HL()+BC());
 }
 
 //LD A,(BC) | Z:- N:- H:- C:-
@@ -209,7 +226,11 @@ void ins_0E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RRCA  | Z:0 N:0 H:0 C:C
 void ins_0F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FC_SET(A()&1);
+    A_SET(rotr_u8(A(),1));
+    FZ_SET(0);
+    FN_SET(0);
+    FH_SET(0);
 }
 
 //STOP d8 | Z:- N:- H:- C:-
@@ -234,7 +255,10 @@ void ins_13(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //INC D | Z:Z N:0 H:H C:-
 void ins_14(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(CARRY_4(D(),1));
+    D_SET(D()+1);
+    FZ_SET(D()==0);
 }
 
 //DEC D | Z:Z N:1 H:H C:-
@@ -264,7 +288,10 @@ void ins_18(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //ADD HL,DE | Z:- N:0 H:H C:C
 void ins_19(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(HL(),DE()));
+    FC_SET(CARRY_16(HL(),DE()));
+    FN_SET(0);
+    HL_SET(HL()+DE());
 }
 
 //LD A,(DE) | Z:- N:- H:- C:-
@@ -279,7 +306,10 @@ void ins_1B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //INC E | Z:Z N:0 H:H C:-
 void ins_1C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(CARRY_4(E(),1));
+    E_SET(E()+1);
+    FZ_SET(E()==0);
 }
 
 //DEC E | Z:Z N:1 H:H C:-
@@ -296,7 +326,10 @@ void ins_1E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RRA  | Z:0 N:0 H:0 C:C
 void ins_1F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 c = FC()<<7;
+    FC_SET(A()&1);
+    A_SET((A()>>1)|c);
+    FZ_SET(0);FN_SET(0);FH_SET(0);
 }
 
 //JR NZ,r8 | Z:- N:- H:- C:-
@@ -354,7 +387,10 @@ void ins_28(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //ADD HL,HL | Z:- N:0 H:H C:C
 void ins_29(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(HL(),HL()));
+    FC_SET(CARRY_16(HL(),HL()));
+    FN_SET(0);
+    HL_SET(HL()+HL());
 }
 
 //LD A,(HL+) | Z:- N:- H:- C:-
@@ -370,7 +406,10 @@ void ins_2B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //INC L | Z:Z N:0 H:H C:-
 void ins_2C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(CARRY_4(L(),1));
+    L_SET(L()+1);
+    FZ_SET(L()==0);
 }
 
 //DEC L | Z:Z N:1 H:H C:-
@@ -393,14 +432,21 @@ void ins_2F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //JR NC,r8 | Z:- N:- H:- C:-
 void ins_30(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(!FC()){
+        PC_SET(PC()+R8());
+    }
 }
 
 //LD SP,d16 | Z:- N:- H:- C:-
-void ins_31(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){ SP_SET(D16());}
+void ins_31(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
+    SP_SET(D16());
+}
 
 //LD (HL-),A | Z:- N:- H:- C:-
-void ins_32(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){M_SET(HL(), A());HL_SET(HL() - 1);}
+void ins_32(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
+    M_SET(HL(), A());
+    HL_SET(HL() - 1);
+}
 
 //INC SP | Z:- N:- H:- C:-
 void ins_33(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
@@ -424,22 +470,27 @@ void ins_35(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //LD (HL),d8 | Z:- N:- H:- C:-
 void ins_36(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    HL_SET(D8());
+    M_SET(HL(),D8());
 }
 
 //SCF  | Z:- N:0 H:0 C:1
 void ins_37(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);FH_SET(0); FC_SET(1);
 }
 
 //JR C,r8 | Z:- N:- H:- C:-
 void ins_38(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(FC()){
+        PC_SET(PC()+R8());
+    }
 }
 
 //ADD HL,SP | Z:- N:0 H:H C:C
 void ins_39(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(HL(),SP()));
+    FC_SET(CARRY_16(HL(),SP()));
+    FN_SET(0);
+    HL_SET(HL()+SP());
 }
 
 //LD A,(HL-) | Z:- N:- H:- C:-
@@ -455,7 +506,10 @@ void ins_3B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //INC A | Z:Z N:0 H:H C:-
 void ins_3C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(CARRY_4(A(),1));
+    A_SET(A()+1);
+    FZ_SET(A()==0);
 }
 
 //DEC A | Z:Z N:1 H:H C:-
@@ -472,7 +526,8 @@ void ins_3E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //CCF  | Z:- N:0 H:0 C:C
 void ins_3F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);FH_SET(0);
+    FC_SET(!FC());
 }
 
 //LD B,B | Z:- N:- H:- C:-
@@ -797,32 +852,56 @@ void ins_7F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //ADD A,B | Z:Z N:0 H:H C:C
 void ins_80(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(A(),B()));
+    FC_SET(CARRY_8(A(),B()));
+    FN_SET(0);
+    A_SET(A()+B());
+    FZ_SET(A()==0);
 }
 
 //ADD A,C | Z:Z N:0 H:H C:C
 void ins_81(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(A(),C()));
+    FC_SET(CARRY_8(A(),C()));
+    FN_SET(0);
+    A_SET(A()+C());
+    FZ_SET(A()==0);
 }
 
 //ADD A,D | Z:Z N:0 H:H C:C
 void ins_82(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(A(),D()));
+    FC_SET(CARRY_8(A(),D()));
+    FN_SET(0);
+    A_SET(A()+D());
+    FZ_SET(A()==0);
 }
 
 //ADD A,E | Z:Z N:0 H:H C:C
 void ins_83(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(A(),E()));
+    FC_SET(CARRY_8(A(),E()));
+    FN_SET(0);
+    A_SET(A()+E());
+    FZ_SET(A()==0);
 }
 
 //ADD A,H | Z:Z N:0 H:H C:C
 void ins_84(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(A(),H()));
+    FC_SET(CARRY_8(A(),H()));
+    FN_SET(0);
+    A_SET(A()+H());
+    FZ_SET(A()==0);
 }
 
 //ADD A,L | Z:Z N:0 H:H C:C
 void ins_85(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(A(),L()));
+    FC_SET(CARRY_8(A(),L()));
+    FN_SET(0);
+    A_SET(A()+L());
+    FZ_SET(A()==0);
 }
 
 //ADD A,(HL) | Z:Z N:0 H:H C:C
@@ -836,47 +915,92 @@ void ins_86(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //ADD A,A | Z:Z N:0 H:H C:C
 void ins_87(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(A(),A()));
+    FC_SET(CARRY_8(A(),A()));
+    FN_SET(0);
+    A_SET(A()+A());
+    FZ_SET(A()==0);
 }
 
 //ADC A,B | Z:Z N:0 H:H C:C
 void ins_88(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    u8 c = FC();
+    FH_SET(CARRY_4C(A(),B(),c));
+    FC_SET(CARRY_8C(A(),B(),c));
+    A_SET(A()+B()+c);
+    FZ_SET(A()==0);
 }
 
 //ADC A,C | Z:Z N:0 H:H C:C
 void ins_89(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    u8 c = FC();
+    FH_SET(CARRY_4C(A(),C(),c));
+    FC_SET(CARRY_8C(A(),C(),c));
+    A_SET(A()+C()+c);
+    FZ_SET(A()==0);
 }
 
 //ADC A,D | Z:Z N:0 H:H C:C
 void ins_8A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    u8 c = FC();
+    FH_SET(CARRY_4C(A(),D(),c));
+    FC_SET(CARRY_8C(A(),D(),c));
+    A_SET(A()+D()+c);
+    FZ_SET(A()==0);
 }
 
 //ADC A,E | Z:Z N:0 H:H C:C
 void ins_8B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    u8 c = FC();
+    FH_SET(CARRY_4C(A(),E(),c));
+    FC_SET(CARRY_8C(A(),E(),c));
+    A_SET(A()+E()+c);
+    FZ_SET(A()==0);
 }
 
 //ADC A,H | Z:Z N:0 H:H C:C
 void ins_8C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    u8 c = FC();
+    FH_SET(CARRY_4C(A(),H(),c));
+    FC_SET(CARRY_8C(A(),H(),c));
+    A_SET(A()+H()+c);
+    FZ_SET(A()==0);
 }
 
 //ADC A,L | Z:Z N:0 H:H C:C
 void ins_8D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    u8 c = FC();
+    FH_SET(CARRY_4C(A(),L(),c));
+    FC_SET(CARRY_8C(A(),L(),c));
+    A_SET(A()+L()+c);
+    FZ_SET(A()==0);
 }
 
 //ADC A,(HL) | Z:Z N:0 H:H C:C
 void ins_8E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    u8 m = M_GET(HL());
+    u8 c = FC();
+    FH_SET(CARRY_4C(A(),m,c));
+    FC_SET(CARRY_8C(A(),m,c));
+    A_SET(A()+m+c);
+    FZ_SET(A()==0);
 }
 
 //ADC A,A | Z:Z N:0 H:H C:C
 void ins_8F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    u8 c = FC();
+    FH_SET(CARRY_4C(A(),A(),c));
+    FC_SET(CARRY_8C(A(),A(),c));
+    A_SET(A()+A()+c);
+    FZ_SET(A()==0);
 }
 
 //SUB B | Z:Z N:1 H:H C:C
@@ -885,82 +1009,152 @@ void ins_90(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     FH_SET(CARRY_4_SUB(A(),B()));
     FN_SET(1);
     A_SET(A()-B());
-    FZ_SET(B()==0);
+    FZ_SET(A()==0);
 }
 
 //SUB C | Z:Z N:1 H:H C:C
 void ins_91(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FC_SET(CARRY_8_SUB(A(),C()));
+    FH_SET(CARRY_4_SUB(A(),C()));
+    FN_SET(1);
+    A_SET(A()-C());
+    FZ_SET(A()==0);
 }
 
 //SUB D | Z:Z N:1 H:H C:C
 void ins_92(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FC_SET(CARRY_8_SUB(A(),D()));
+    FH_SET(CARRY_4_SUB(A(),D()));
+    FN_SET(1);
+    A_SET(A()-D());
+    FZ_SET(A()==0);
 }
 
 //SUB E | Z:Z N:1 H:H C:C
 void ins_93(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FC_SET(CARRY_8_SUB(A(),E()));
+    FH_SET(CARRY_4_SUB(A(),E()));
+    FN_SET(1);
+    A_SET(A()-E());
+    FZ_SET(A()==0);
 }
 
 //SUB H | Z:Z N:1 H:H C:C
 void ins_94(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FC_SET(CARRY_8_SUB(A(),H()));
+    FH_SET(CARRY_4_SUB(A(),H()));
+    FN_SET(1);
+    A_SET(A()-H());
+    FZ_SET(A()==0);
 }
 
 //SUB L | Z:Z N:1 H:H C:C
 void ins_95(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FC_SET(CARRY_8_SUB(A(),L()));
+    FH_SET(CARRY_4_SUB(A(),L()));
+    FN_SET(1);
+    A_SET(A()-L());
+    FZ_SET(A()==0);
 }
 
 //SUB (HL) | Z:Z N:1 H:H C:C
 void ins_96(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 m = M_GET(HL());
+    FC_SET(CARRY_8_SUB(A(),m));
+    FH_SET(CARRY_4_SUB(A(),m));
+    FN_SET(1);
+    A_SET(A()-m);
+    FZ_SET(A()==0);
 }
 
 //SUB A | Z:1 N:1 H:0 C:0
 void ins_97(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FC_SET(0);
+    FH_SET(0);
+    FN_SET(1);
+    A_SET(0);
+    FZ_SET(1);
 }
 
 //SBC A,B | Z:Z N:1 H:H C:C
 void ins_98(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(1);
+    u8 c = FC();
+    FH_SET(CARRY_4_SUBC(A(),B(),c));
+    FC_SET(CARRY_8_SUBC(A(),B(),c));
+    A_SET(A()-B()-c);
+    FZ_SET(A()==0);
 }
 
 //SBC A,C | Z:Z N:1 H:H C:C
 void ins_99(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(1);
+    u8 c = FC();
+    FH_SET(CARRY_4_SUBC(A(),C(),c));
+    FC_SET(CARRY_8_SUBC(A(),C(),c));
+    A_SET(A()-C()-c);
+    FZ_SET(A()==0);
 }
 
 //SBC A,D | Z:Z N:1 H:H C:C
 void ins_9A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(1);
+    u8 c = FC();
+    FH_SET(CARRY_4_SUBC(A(),D(),c));
+    FC_SET(CARRY_8_SUBC(A(),D(),c));
+    A_SET(A()-D()-c);
+    FZ_SET(A()==0);
 }
 
 //SBC A,E | Z:Z N:1 H:H C:C
 void ins_9B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(1);
+    u8 c = FC();
+    FH_SET(CARRY_4_SUBC(A(),E(),c));
+    FC_SET(CARRY_8_SUBC(A(),E(),c));
+    A_SET(A()-E()-c);
+    FZ_SET(A()==0);
 }
 
 //SBC A,H | Z:Z N:1 H:H C:C
 void ins_9C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(1);
+    u8 c = FC();
+    FH_SET(CARRY_4_SUBC(A(),H(),c));
+    FC_SET(CARRY_8_SUBC(A(),H(),c));
+    A_SET(A()-H()-c);
+    FZ_SET(A()==0);
 }
 
 //SBC A,L | Z:Z N:1 H:H C:C
 void ins_9D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(1);
+    u8 c = FC();
+    FH_SET(CARRY_4_SUBC(A(),L(),c));
+    FC_SET(CARRY_8_SUBC(A(),L(),c));
+    A_SET(A()-L()-c);
+    FZ_SET(A()==0);
 }
 
 //SBC A,(HL) | Z:Z N:1 H:H C:C
 void ins_9E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(1);
+    u8 c = FC();
+    u8 m = M_GET(HL());
+    FH_SET(CARRY_4_SUBC(A(),m,c));
+    FC_SET(CARRY_8_SUBC(A(),m,c));
+    A_SET(A()-m-c);
+    FZ_SET(A()==0);
 }
 
 //SBC A,A | Z:Z N:1 H:H C:C
 void ins_9F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(1);
+    u8 c = FC();
+    FH_SET(CARRY_4_SUBC(A(),A(),c));
+    FC_SET(CARRY_8_SUBC(A(),A(),c));
+    A_SET(A()-A()-c);
+    FZ_SET(A()==0);
 }
 
 //AND B | Z:Z N:0 H:1 C:0
@@ -1156,7 +1350,9 @@ void ins_BF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RET NZ | Z:- N:- H:- C:-
 void ins_C0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(!FZ()){
+        PC_SET(stack_pop_u16(cpu));
+    }
 }
 
 //POP BC | Z:- N:- H:- C:-
@@ -1166,7 +1362,9 @@ void ins_C1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //JP NZ,a16 | Z:- N:- H:- C:-
 void ins_C2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(!FZ()){
+        PC_SET(A16());
+    }
 }
 
 //JP a16 | Z:- N:- H:- C:-
@@ -1176,7 +1374,10 @@ void ins_C3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //CALL NZ,a16 | Z:- N:- H:- C:-
 void ins_C4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(!FZ()){
+        stack_push_u16(cpu,PC());
+        PC_SET(A16());
+    }
 }
 
 //PUSH BC | Z:- N:- H:- C:-
@@ -1186,17 +1387,24 @@ void ins_C5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //ADD A,d8 | Z:Z N:0 H:H C:C
 void ins_C6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(A(),D8()));
+    FC_SET(CARRY_8(A(),D8()));
+    FN_SET(0);
+    A_SET(A()+D8());
+    FZ_SET(A()==0);
 }
 
 //RST 00H | Z:- N:- H:- C:-
 void ins_C7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    stack_push_u16(cpu,PC());
+    PC_SET(0x00);
 }
 
 //RET Z | Z:- N:- H:- C:-
 void ins_C8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(FZ()){
+        PC_SET(stack_pop_u16(cpu));
+    }
 }
 
 //RET  | Z:- N:- H:- C:-
@@ -1206,17 +1414,23 @@ void ins_C9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //JP Z,a16 | Z:- N:- H:- C:-
 void ins_CA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(FZ()){
+        PC_SET(A16());
+    }
 }
 
 //PREFIX  | Z:- N:- H:- C:-
 void ins_CB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    //how did we even get here?
+    ILLEGAL_INS();
 }
 
 //CALL Z,a16 | Z:- N:- H:- C:-
 void ins_CC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(FZ()){
+        stack_push_u16(cpu,PC());
+        PC_SET(A16());
+    }
 }
 
 //CALL a16 | Z:- N:- H:- C:-
@@ -1227,17 +1441,25 @@ void ins_CD(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //ADC A,d8 | Z:Z N:0 H:H C:C
 void ins_CE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    u8 c = FC();
+    FH_SET(CARRY_4C(A(),D8(),c));
+    FC_SET(CARRY_8C(A(),D8(),c));
+    A_SET(A()+D8()+c);
+    FZ_SET(A()==0);
 }
 
 //RST 08H | Z:- N:- H:- C:-
 void ins_CF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    stack_push_u16(cpu,PC());
+    PC_SET(0x08);
 }
 
 //RET NC | Z:- N:- H:- C:-
 void ins_D0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(!FC()){
+        PC_SET(stack_pop_u16(cpu));
+    }
 }
 
 //POP DE | Z:- N:- H:- C:-
@@ -1247,17 +1469,22 @@ void ins_D1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //JP NC,a16 | Z:- N:- H:- C:-
 void ins_D2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(!FC()){
+        PC_SET(A16());
+    }
 }
 
 //ILLEGAL_D3  | Z:- N:- H:- C:-
 void ins_D3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //CALL NC,a16 | Z:- N:- H:- C:-
 void ins_D4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(!FC()){
+        stack_push_u16(cpu,PC());
+        PC_SET(A16());
+    }
 }
 
 //PUSH DE | Z:- N:- H:- C:-
@@ -1267,17 +1494,24 @@ void ins_D5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //SUB d8 | Z:Z N:1 H:H C:C
 void ins_D6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FC_SET(CARRY_8_SUB(A(),D8()));
+    FH_SET(CARRY_4_SUB(A(),D8()));
+    FN_SET(1);
+    A_SET(A()-D8());
+    FZ_SET(A()==0);
 }
 
 //RST 10H | Z:- N:- H:- C:-
 void ins_D7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    stack_push_u16(cpu,PC());
+    PC_SET(0x10);
 }
 
 //RET C | Z:- N:- H:- C:-
 void ins_D8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(FC()){
+        PC_SET(stack_pop_u16(cpu));
+    }
 }
 
 //RETI  | Z:- N:- H:- C:-
@@ -1287,32 +1521,43 @@ void ins_D9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //JP C,a16 | Z:- N:- H:- C:-
 void ins_DA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(FC()){
+        PC_SET(A16());
+    }
 }
 
 //ILLEGAL_DB  | Z:- N:- H:- C:-
 void ins_DB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //CALL C,a16 | Z:- N:- H:- C:-
 void ins_DC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    if(FC()){
+        stack_push_u16(cpu,PC());
+        PC_SET(A16());
+    }
 }
 
 //ILLEGAL_DD  | Z:- N:- H:- C:-
 void ins_DD(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //SBC A,d8 | Z:Z N:1 H:H C:C
 void ins_DE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(1);
+    u8 c = FC();
+    FH_SET(CARRY_4_SUBC(A(),D8(),c));
+    FC_SET(CARRY_8_SUBC(A(),D8(),c));
+    A_SET(A()-D8()-c);
+    FZ_SET(A()==0);
 }
 
 //RST 18H | Z:- N:- H:- C:-
 void ins_DF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    stack_push_u16(cpu,PC());
+    PC_SET(0x18);
 }
 
 //LDH (a8),A | Z:- N:- H:- C:-
@@ -1325,19 +1570,19 @@ void ins_E1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     HL_SET(stack_pop_u16(cpu));
 }
 
-//LD (C),A | Z:- N:- H:- C:-
+//LD ($FF00+C),A | Z:- N:- H:- C:-
 void ins_E2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    M_SET(C(),A());
+    M_SET(0xFF00+C(),A());
 }
 
 //ILLEGAL_E3  | Z:- N:- H:- C:-
 void ins_E3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //ILLEGAL_E4  | Z:- N:- H:- C:-
 void ins_E4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //PUSH HL | Z:- N:- H:- C:-
@@ -1353,17 +1598,22 @@ void ins_E6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RST 20H | Z:- N:- H:- C:-
 void ins_E7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    stack_push_u16(cpu,PC());
+    PC_SET(0x20);
 }
 
 //ADD SP,r8 | Z:0 N:0 H:H C:C
 void ins_E8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FH_SET(CARRY_4(SP(),R8()));
+    FC_SET(CARRY_16(SP(),R8()));
+    FN_SET(0);
+    SP_SET(SP()+R8());
+    FZ_SET(0);
 }
 
 //JP HL | Z:- N:- H:- C:-
 void ins_E9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    PC_SET(HL());
 }
 
 //LD (a16),A | Z:- N:- H:- C:-
@@ -1373,17 +1623,17 @@ void ins_EA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //ILLEGAL_EB  | Z:- N:- H:- C:-
 void ins_EB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //ILLEGAL_EC  | Z:- N:- H:- C:-
 void ins_EC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //ILLEGAL_ED  | Z:- N:- H:- C:-
 void ins_ED(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //XOR d8 | Z:Z N:0 H:0 C:0
@@ -1394,7 +1644,8 @@ void ins_EE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RST 28H | Z:- N:- H:- C:-
 void ins_EF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    stack_push_u16(cpu,PC());
+    PC_SET(0x28);
 }
 
 //LDH A,(a8) | Z:- N:- H:- C:-
@@ -1409,22 +1660,22 @@ void ins_F1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //LD A,(C) | Z:- N:- H:- C:-
 void ins_F2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    A_SET(M_GET(C()));
+    A_SET(M_GET(0xff00+C()));
 }
 
 //DI  | Z:- N:- H:- C:-
 void ins_F3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    log_error("did not disable interrupts for testing reasons, fix me");
 }
 
 //ILLEGAL_F4  | Z:- N:- H:- C:-
 void ins_F4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //PUSH AF | Z:- N:- H:- C:-
 void ins_F5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    stack_push_u16(cpu,AF());
 }
 
 //OR d8 | Z:Z N:0 H:0 C:0
@@ -1435,11 +1686,16 @@ void ins_F6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RST 30H | Z:- N:- H:- C:-
 void ins_F7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    stack_push_u16(cpu,PC());
+    PC_SET(0x30);
 }
 
 //LD HL,SP+r8 | Z:0 N:0 H:H C:C
 void ins_F8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
+    FC_SET(CARRY_16(SP(),R8()));
+    FH_SET(CARRY_4(SP(),R8()));
+    FZ_SET(0);
+    FN_SET(0);
     HL_SET(SP()+R8());
 }
 
@@ -1455,17 +1711,18 @@ void ins_FA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //EI  | Z:- N:- H:- C:-
 void ins_FB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
+
     UNIMPLEMENTED();
 }
 
 //ILLEGAL_FC  | Z:- N:- H:- C:-
 void ins_FC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //ILLEGAL_FD  | Z:- N:- H:- C:-
 void ins_FD(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    ILLEGAL_INS();
 }
 
 //CP d8 | Z:Z N:1 H:H C:C
@@ -1476,7 +1733,8 @@ void ins_FE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RST 38H | Z:- N:- H:- C:-
 void ins_FF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    stack_push_u16(cpu,PC());
+    PC_SET(0x38);
 }
 
 
@@ -1546,32 +1804,56 @@ void ins_CB_07(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RRC B | Z:Z N:0 H:0 C:C
 void ins_CB_08(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(B()&1);
+    B_SET(rotr_u8(B(),1));
+    FZ_SET(B()==0);
 }
 
 //RRC C | Z:Z N:0 H:0 C:C
 void ins_CB_09(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(C()&1);
+    C_SET(rotr_u8(C(),1));
+    FZ_SET(C()==0);
 }
 
 //RRC D | Z:Z N:0 H:0 C:C
 void ins_CB_0A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(D()&1);
+    D_SET(rotr_u8(D(),1));
+    FZ_SET(D()==0);
 }
 
 //RRC E | Z:Z N:0 H:0 C:C
 void ins_CB_0B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(E()&1);
+    E_SET(rotr_u8(E(),1));
+    FZ_SET(E()==0);
 }
 
 //RRC H | Z:Z N:0 H:0 C:C
 void ins_CB_0C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(H()&1);
+    H_SET(rotr_u8(H(),1));
+    FZ_SET(H()==0);
 }
 
 //RRC L | Z:Z N:0 H:0 C:C
 void ins_CB_0D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(L()&1);
+    L_SET(rotr_u8(L(),1));
+    FZ_SET(L()==0);
 }
 
 //RRC (HL) | Z:Z N:0 H:0 C:C
@@ -1584,7 +1866,11 @@ void ins_CB_0E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RRC A | Z:Z N:0 H:0 C:C
 void ins_CB_0F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(A()&1);
+    A_SET(rotr_u8(A(),1));
+    FZ_SET(A()==0);
 }
 
 //RL B | Z:Z N:0 H:0 C:C
@@ -1721,162 +2007,294 @@ void ins_CB_1F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //SLA B | Z:Z N:0 H:0 C:C
 void ins_CB_20(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(B()&0x80);
+    B_SET (B()<<1);
+    FZ_SET(B()==0);
 }
 
 //SLA C | Z:Z N:0 H:0 C:C
 void ins_CB_21(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(C()&0x80);
+    C_SET (C()<<1);
+    FZ_SET(C()==0);
 }
 
 //SLA D | Z:Z N:0 H:0 C:C
 void ins_CB_22(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(D()&0x80);
+    D_SET (D()<<1);
+    FZ_SET(D()==0);
 }
 
 //SLA E | Z:Z N:0 H:0 C:C
 void ins_CB_23(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(E()&0x80);
+    E_SET (E()<<1);
+    FZ_SET(E()==0);
 }
 
 //SLA H | Z:Z N:0 H:0 C:C
 void ins_CB_24(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(H()&0x80);
+    H_SET (H()<<1);
+    FZ_SET(H()==0);
 }
 
 //SLA L | Z:Z N:0 H:0 C:C
 void ins_CB_25(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(L()&0x80);
+    L_SET (L()<<1);
+    FZ_SET(L()==0);
 }
 
 //SLA (HL) | Z:Z N:0 H:0 C:C
 void ins_CB_26(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 m = M_GET(HL());
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(m&0x80);
+    M_SET (HL(),m<<1);
+    FZ_SET((m<<1)==0);
 }
 
 //SLA A | Z:Z N:0 H:0 C:C
 void ins_CB_27(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(A()&0x80);
+    A_SET (A()<<1);
+    FZ_SET(A()==0);
 }
 
 //SRA B | Z:Z N:0 H:0 C:C
 void ins_CB_28(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0); FH_SET(0);
+    u8 l = B()&0x80;
+    FC_SET(B()&1);
+    B_SET((B()>>1)|l);
+    FZ_SET(B()==0);
 }
 
 //SRA C | Z:Z N:0 H:0 C:C
 void ins_CB_29(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0); FH_SET(0);
+    u8 l = C()&0x80;
+    FC_SET(C()&1);
+    C_SET((C()>>1)|l);
+    FZ_SET(C()==0);
 }
 
 //SRA D | Z:Z N:0 H:0 C:C
 void ins_CB_2A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0); FH_SET(0);
+    u8 l = D()&0x80;
+    FC_SET(D()&1);
+    D_SET((D()>>1)|l);
+    FZ_SET(D()==0);
 }
 
 //SRA E | Z:Z N:0 H:0 C:C
 void ins_CB_2B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0); FH_SET(0);
+    u8 l = E()&0x80;
+    FC_SET(E()&1);
+    E_SET((E()>>1)|l);
+    FZ_SET(E()==0);
 }
 
 //SRA H | Z:Z N:0 H:0 C:C
 void ins_CB_2C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0); FH_SET(0);
+    u8 l = H()&0x80;
+    FC_SET(H()&1);
+    H_SET((H()>>1)|l);
+    FZ_SET(H()==0);
 }
 
 //SRA L | Z:Z N:0 H:0 C:C
 void ins_CB_2D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0); FH_SET(0);
+    u8 l = L()&0x80;
+    FC_SET(L()&1);
+    L_SET((L()>>1)|l);
+    FZ_SET(L()==0);
 }
 
 //SRA (HL) | Z:Z N:0 H:0 C:C
 void ins_CB_2E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0); FH_SET(0);
+    u8 m = M_GET(HL());
+    u8 l = m&0x80;
+    FC_SET(m&1);
+    M_SET(HL(),(m>>1)|l);
+    FZ_SET(((m>>1)|l)==0);
 }
 
 //SRA A | Z:Z N:0 H:0 C:C
 void ins_CB_2F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0); FH_SET(0);
+    u8 l = A()&0x80;
+    FC_SET(A()&1);
+    A_SET((A()>>1)|l);
+    FZ_SET(A()==0);
 }
 
 //SWAP B | Z:Z N:0 H:0 C:0
 void ins_CB_30(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(0);
+    B_SET(SWAP8(B()));
+    FZ_SET(B()==0);
 }
 
 //SWAP C | Z:Z N:0 H:0 C:0
 void ins_CB_31(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(0);
+    C_SET(SWAP8(C()));
+    FZ_SET(C()==0);
 }
 
 //SWAP D | Z:Z N:0 H:0 C:0
 void ins_CB_32(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(0);
+    D_SET(SWAP8(D()));
+    FZ_SET(D()==0);
 }
 
 //SWAP E | Z:Z N:0 H:0 C:0
 void ins_CB_33(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(0);
+    E_SET(SWAP8(E()));
+    FZ_SET(E()==0);
 }
 
 //SWAP H | Z:Z N:0 H:0 C:0
 void ins_CB_34(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(0);
+    H_SET(SWAP8(H()));
+    FZ_SET(H()==0);
 }
 
 //SWAP L | Z:Z N:0 H:0 C:0
 void ins_CB_35(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(0);
+    L_SET(SWAP8(L()));
+    FZ_SET(L()==0);
 }
 
 //SWAP (HL) | Z:Z N:0 H:0 C:0
 void ins_CB_36(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 m = M_GET(HL());
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(0);
+    M_SET(HL(),SWAP8(m));
+    FZ_SET(m==0); //swap is only 0 if it has been 0 before so yea
 }
 
 //SWAP A | Z:Z N:0 H:0 C:0
 void ins_CB_37(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(0);
+    A_SET(SWAP8(A()));
+    FZ_SET(A()==0);
 }
 
 //SRL B | Z:Z N:0 H:0 C:C
 void ins_CB_38(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(B()&1);
+    B_SET(B()>>1);
+    FZ_SET(B()==0);
 }
 
 //SRL C | Z:Z N:0 H:0 C:C
 void ins_CB_39(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(C()&1);
+    C_SET(C()>>1);
+    FZ_SET(C()==0);
 }
 
 //SRL D | Z:Z N:0 H:0 C:C
 void ins_CB_3A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(D()&1);
+    D_SET(D()>>1);
+    FZ_SET(D()==0);
 }
 
 //SRL E | Z:Z N:0 H:0 C:C
 void ins_CB_3B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(E()&1);
+    E_SET(E()>>1);
+    FZ_SET(E()==0);
 }
 
 //SRL H | Z:Z N:0 H:0 C:C
 void ins_CB_3C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(H()&1);
+    H_SET(H()>>1);
+    FZ_SET(H()==0);
 }
 
 //SRL L | Z:Z N:0 H:0 C:C
 void ins_CB_3D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(L()&1);
+    L_SET(L()>>1);
+    FZ_SET(L()==0);
 }
 
 //SRL (HL) | Z:Z N:0 H:0 C:C
 void ins_CB_3E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 m = M_GET(HL());
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(m&1);
+    M_SET(HL(),m>>1);
+    FZ_SET((m>>1)==0);
 }
 
 //SRL A | Z:Z N:0 H:0 C:C
 void ins_CB_3F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    FN_SET(0);
+    FH_SET(0);
+    FC_SET(A()&1);
+    A_SET(A()>>1);
+    FZ_SET(A()==0);
 }
 
 //BIT 0,B | Z:Z N:0 H:1 C:-
@@ -2201,642 +2619,643 @@ void ins_CB_7F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RES 0,B | Z:- N:- H:- C:-
 void ins_CB_80(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B() &(~(1<<0)));
 }
 
 //RES 0,C | Z:- N:- H:- C:-
 void ins_CB_81(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C() &(~(1<<0)));
 }
 
 //RES 0,D | Z:- N:- H:- C:-
 void ins_CB_82(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D() &(~(1<<0)));
 }
 
 //RES 0,E | Z:- N:- H:- C:-
 void ins_CB_83(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E() &(~(1<<0)));
 }
 
 //RES 0,H | Z:- N:- H:- C:-
 void ins_CB_84(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H() &(~(1<<0)));
 }
 
 //RES 0,L | Z:- N:- H:- C:-
 void ins_CB_85(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L() &(~(1<<0)));
 }
 
 //RES 0,(HL) | Z:- N:- H:- C:-
 void ins_CB_86(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 m = M_GET(HL());
+    M_SET(HL(),m&(~(1<<0)));
 }
 
 //RES 0,A | Z:- N:- H:- C:-
 void ins_CB_87(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A() &(~(1<<0)));
 }
 
 //RES 1,B | Z:- N:- H:- C:-
 void ins_CB_88(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B() &(~(1<<1)));
 }
 
 //RES 1,C | Z:- N:- H:- C:-
 void ins_CB_89(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C() &(~(1<<1)));
 }
 
 //RES 1,D | Z:- N:- H:- C:-
 void ins_CB_8A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D() &(~(1<<1)));
 }
 
 //RES 1,E | Z:- N:- H:- C:-
 void ins_CB_8B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E() &(~(1<<1)));
 }
 
 //RES 1,H | Z:- N:- H:- C:-
 void ins_CB_8C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H() &(~(1<<1)));
 }
 
 //RES 1,L | Z:- N:- H:- C:-
 void ins_CB_8D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L() &(~(1<<1)));
 }
 
 //RES 1,(HL) | Z:- N:- H:- C:-
 void ins_CB_8E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())&(~(1<<1)));
 }
 
 //RES 1,A | Z:- N:- H:- C:-
 void ins_CB_8F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A() &(~(1<<1)));
 }
 
 //RES 2,B | Z:- N:- H:- C:-
 void ins_CB_90(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B() &(~(1<<2)));
 }
 
 //RES 2,C | Z:- N:- H:- C:-
 void ins_CB_91(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C() &(~(1<<2)));
 }
 
 //RES 2,D | Z:- N:- H:- C:-
 void ins_CB_92(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D() &(~(1<<2)));
 }
 
 //RES 2,E | Z:- N:- H:- C:-
 void ins_CB_93(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E() &(~(1<<2)));
 }
 
 //RES 2,H | Z:- N:- H:- C:-
 void ins_CB_94(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H() &(~(1<<2)));
 }
 
 //RES 2,L | Z:- N:- H:- C:-
 void ins_CB_95(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L() &(~(1<<2)));
 }
 
 //RES 2,(HL) | Z:- N:- H:- C:-
 void ins_CB_96(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())&(~(1<<2)));
 }
 
 //RES 2,A | Z:- N:- H:- C:-
 void ins_CB_97(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A() &(~(1<<2)));
 }
 
 //RES 3,B | Z:- N:- H:- C:-
 void ins_CB_98(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B() &(~(1<<3)));
 }
 
 //RES 3,C | Z:- N:- H:- C:-
 void ins_CB_99(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C() &(~(1<<3)));
 }
 
 //RES 3,D | Z:- N:- H:- C:-
 void ins_CB_9A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D() &(~(1<<3)));
 }
 
 //RES 3,E | Z:- N:- H:- C:-
 void ins_CB_9B(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E() &(~(1<<3)));
 }
 
 //RES 3,H | Z:- N:- H:- C:-
 void ins_CB_9C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H() &(~(1<<3)));
 }
 
 //RES 3,L | Z:- N:- H:- C:-
 void ins_CB_9D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L() &(~(1<<3)));
 }
 
 //RES 3,(HL) | Z:- N:- H:- C:-
 void ins_CB_9E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())&(~(1<<3)));
 }
 
 //RES 3,A | Z:- N:- H:- C:-
 void ins_CB_9F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A() &(~(1<<3)));
 }
 
 //RES 4,B | Z:- N:- H:- C:-
 void ins_CB_A0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B() &(~(1<<4)));
 }
 
 //RES 4,C | Z:- N:- H:- C:-
 void ins_CB_A1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C() &(~(1<<4)));
 }
 
 //RES 4,D | Z:- N:- H:- C:-
 void ins_CB_A2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D() &(~(1<<4)));
 }
 
 //RES 4,E | Z:- N:- H:- C:-
 void ins_CB_A3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E() &(~(1<<4)));
 }
 
 //RES 4,H | Z:- N:- H:- C:-
 void ins_CB_A4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H() &(~(1<<4)));
 }
 
 //RES 4,L | Z:- N:- H:- C:-
 void ins_CB_A5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L() &(~(1<<4)));
 }
 
 //RES 4,(HL) | Z:- N:- H:- C:-
 void ins_CB_A6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())&(~(1<<4)));
 }
 
 //RES 4,A | Z:- N:- H:- C:-
 void ins_CB_A7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A() &(~(1<<4)));
 }
 
 //RES 5,B | Z:- N:- H:- C:-
 void ins_CB_A8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B() &(~(1<<5)));
 }
 
 //RES 5,C | Z:- N:- H:- C:-
 void ins_CB_A9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C() &(~(1<<5)));
 }
 
 //RES 5,D | Z:- N:- H:- C:-
 void ins_CB_AA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D() &(~(1<<5)));
 }
 
 //RES 5,E | Z:- N:- H:- C:-
 void ins_CB_AB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E() &(~(1<<5)));
 }
 
 //RES 5,H | Z:- N:- H:- C:-
 void ins_CB_AC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H() &(~(1<<5)));
 }
 
 //RES 5,L | Z:- N:- H:- C:-
 void ins_CB_AD(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L() &(~(1<<5)));
 }
 
 //RES 5,(HL) | Z:- N:- H:- C:-
 void ins_CB_AE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())&(~(1<<5)));
 }
 
 //RES 5,A | Z:- N:- H:- C:-
 void ins_CB_AF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A() &(~(1<<5)));
 }
 
 //RES 6,B | Z:- N:- H:- C:-
 void ins_CB_B0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B() &(~(1<<6)));
 }
 
 //RES 6,C | Z:- N:- H:- C:-
 void ins_CB_B1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C() &(~(1<<6)));
 }
 
 //RES 6,D | Z:- N:- H:- C:-
 void ins_CB_B2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D() &(~(1<<6)));
 }
 
 //RES 6,E | Z:- N:- H:- C:-
 void ins_CB_B3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E() &(~(1<<6)));
 }
 
 //RES 6,H | Z:- N:- H:- C:-
 void ins_CB_B4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H() &(~(1<<6)));
 }
 
 //RES 6,L | Z:- N:- H:- C:-
 void ins_CB_B5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L() &(~(1<<6)));
 }
 
 //RES 6,(HL) | Z:- N:- H:- C:-
 void ins_CB_B6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())&(~(1<<6)));
 }
 
 //RES 6,A | Z:- N:- H:- C:-
 void ins_CB_B7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A() &(~(1<<6)));
 }
 
 //RES 7,B | Z:- N:- H:- C:-
 void ins_CB_B8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B() &(~(1<<7)));
 }
 
 //RES 7,C | Z:- N:- H:- C:-
 void ins_CB_B9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C() &(~(1<<7)));
 }
 
 //RES 7,D | Z:- N:- H:- C:-
 void ins_CB_BA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D() &(~(1<<7)));
 }
 
 //RES 7,E | Z:- N:- H:- C:-
 void ins_CB_BB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E() &(~(1<<7)));
 }
 
 //RES 7,H | Z:- N:- H:- C:-
 void ins_CB_BC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H() &(~(1<<7)));
 }
 
 //RES 7,L | Z:- N:- H:- C:-
 void ins_CB_BD(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L() &(~(1<<7)));
 }
 
 //RES 7,(HL) | Z:- N:- H:- C:-
 void ins_CB_BE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())&(~(1<<7)));
 }
 
 //RES 7,A | Z:- N:- H:- C:-
 void ins_CB_BF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A() &(~(1<<7)));
 }
 
 //SET 0,B | Z:- N:- H:- C:-
 void ins_CB_C0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B()|(1<<0));
 }
 
 //SET 0,C | Z:- N:- H:- C:-
 void ins_CB_C1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C()|(1<<0));
 }
 
 //SET 0,D | Z:- N:- H:- C:-
 void ins_CB_C2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D()|(1<<0));
 }
 
 //SET 0,E | Z:- N:- H:- C:-
 void ins_CB_C3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E()|(1<<0));
 }
 
 //SET 0,H | Z:- N:- H:- C:-
 void ins_CB_C4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H()|(1<<0));
 }
 
 //SET 0,L | Z:- N:- H:- C:-
 void ins_CB_C5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L()|(1<<0));
 }
 
 //SET 0,(HL) | Z:- N:- H:- C:-
 void ins_CB_C6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())|(1<<0));
 }
 
 //SET 0,A | Z:- N:- H:- C:-
 void ins_CB_C7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A()|(1<<0));
 }
 
 //SET 1,B | Z:- N:- H:- C:-
 void ins_CB_C8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B()|(1<<1));
 }
 
 //SET 1,C | Z:- N:- H:- C:-
 void ins_CB_C9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C()|(1<<1));
 }
 
 //SET 1,D | Z:- N:- H:- C:-
 void ins_CB_CA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D()|(1<<1));
 }
 
 //SET 1,E | Z:- N:- H:- C:-
 void ins_CB_CB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E()|(1<<1));
 }
 
 //SET 1,H | Z:- N:- H:- C:-
 void ins_CB_CC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E()|(1<<1));
 }
 
 //SET 1,L | Z:- N:- H:- C:-
 void ins_CB_CD(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L()|(1<<1));
 }
 
 //SET 1,(HL) | Z:- N:- H:- C:-
 void ins_CB_CE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())|(1<<1));
 }
 
 //SET 1,A | Z:- N:- H:- C:-
 void ins_CB_CF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A()|(1<<1));
 }
 
 //SET 2,B | Z:- N:- H:- C:-
 void ins_CB_D0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B()|(1<<2));
 }
 
 //SET 2,C | Z:- N:- H:- C:-
 void ins_CB_D1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C()|(1<<2));
 }
 
 //SET 2,D | Z:- N:- H:- C:-
 void ins_CB_D2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D()|(1<<2));
 }
 
 //SET 2,E | Z:- N:- H:- C:-
 void ins_CB_D3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E()|(1<<2));
 }
 
 //SET 2,H | Z:- N:- H:- C:-
 void ins_CB_D4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H()|(1<<2));
 }
 
 //SET 2,L | Z:- N:- H:- C:-
 void ins_CB_D5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L()|(1<<2));
 }
 
 //SET 2,(HL) | Z:- N:- H:- C:-
 void ins_CB_D6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())|(1<<2));
 }
 
 //SET 2,A | Z:- N:- H:- C:-
 void ins_CB_D7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A()|(1<<2));
 }
 
 //SET 3,B | Z:- N:- H:- C:-
 void ins_CB_D8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B()|(1<<3));
 }
 
 //SET 3,C | Z:- N:- H:- C:-
 void ins_CB_D9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C()|(1<<3));
 }
 
 //SET 3,D | Z:- N:- H:- C:-
 void ins_CB_DA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D()|(1<<3));
 }
 
 //SET 3,E | Z:- N:- H:- C:-
 void ins_CB_DB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E()|(1<<3));
 }
 
 //SET 3,H | Z:- N:- H:- C:-
 void ins_CB_DC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H()|(1<<3));
 }
 
 //SET 3,L | Z:- N:- H:- C:-
 void ins_CB_DD(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L()|(1<<3));
 }
 
 //SET 3,(HL) | Z:- N:- H:- C:-
 void ins_CB_DE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())|(1<<3));
 }
 
 //SET 3,A | Z:- N:- H:- C:-
 void ins_CB_DF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A()|(1<<3));
 }
 
 //SET 4,B | Z:- N:- H:- C:-
 void ins_CB_E0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B()|(1<<4));
 }
 
 //SET 4,C | Z:- N:- H:- C:-
 void ins_CB_E1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C()|(1<<4));
 }
 
 //SET 4,D | Z:- N:- H:- C:-
 void ins_CB_E2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D()|(1<<4));
 }
 
 //SET 4,E | Z:- N:- H:- C:-
 void ins_CB_E3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E()|(1<<4));
 }
 
 //SET 4,H | Z:- N:- H:- C:-
 void ins_CB_E4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H()|(1<<4));
 }
 
 //SET 4,L | Z:- N:- H:- C:-
 void ins_CB_E5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L()|(1<<4));
 }
 
 //SET 4,(HL) | Z:- N:- H:- C:-
 void ins_CB_E6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())|(1<<4));
 }
 
 //SET 4,A | Z:- N:- H:- C:-
 void ins_CB_E7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A()|(1<<4));
 }
 
 //SET 5,B | Z:- N:- H:- C:-
 void ins_CB_E8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B()|(1<<5));
 }
 
 //SET 5,C | Z:- N:- H:- C:-
 void ins_CB_E9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C()|(1<<5));
 }
 
 //SET 5,D | Z:- N:- H:- C:-
 void ins_CB_EA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D()|(1<<5));
 }
 
 //SET 5,E | Z:- N:- H:- C:-
 void ins_CB_EB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E()|(1<<5));
 }
 
 //SET 5,H | Z:- N:- H:- C:-
 void ins_CB_EC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H()|(1<<5));
 }
 
 //SET 5,L | Z:- N:- H:- C:-
 void ins_CB_ED(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L()|(1<<5));
 }
 
 //SET 5,(HL) | Z:- N:- H:- C:-
 void ins_CB_EE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())|(1<<5));
 }
 
 //SET 5,A | Z:- N:- H:- C:-
 void ins_CB_EF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A()|(1<<5));
 }
 
 //SET 6,B | Z:- N:- H:- C:-
 void ins_CB_F0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B()|(1<<6));
 }
 
 //SET 6,C | Z:- N:- H:- C:-
 void ins_CB_F1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C()|(1<<6));
 }
 
 //SET 6,D | Z:- N:- H:- C:-
 void ins_CB_F2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D()|(1<<6));
 }
 
 //SET 6,E | Z:- N:- H:- C:-
 void ins_CB_F3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E()|(1<<6));
 }
 
 //SET 6,H | Z:- N:- H:- C:-
 void ins_CB_F4(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H()|(1<<6));
 }
 
 //SET 6,L | Z:- N:- H:- C:-
 void ins_CB_F5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L()|(1<<6));
 }
 
 //SET 6,(HL) | Z:- N:- H:- C:-
 void ins_CB_F6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())|(1<<6));
 }
 
 //SET 6,A | Z:- N:- H:- C:-
 void ins_CB_F7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A()|(1<<6));
 }
 
 //SET 7,B | Z:- N:- H:- C:-
 void ins_CB_F8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    B_SET(B()|(1<<7));
 }
 
 //SET 7,C | Z:- N:- H:- C:-
 void ins_CB_F9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    C_SET(C()|(1<<7));
 }
 
 //SET 7,D | Z:- N:- H:- C:-
 void ins_CB_FA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    D_SET(D()|(1<<7));
 }
 
 //SET 7,E | Z:- N:- H:- C:-
 void ins_CB_FB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    E_SET(E()|(1<<7));
 }
 
 //SET 7,H | Z:- N:- H:- C:-
 void ins_CB_FC(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    H_SET(H()|(1<<7));
 }
 
 //SET 7,L | Z:- N:- H:- C:-
 void ins_CB_FD(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    L_SET(L()|(1<<7));
 }
 
 //SET 7,(HL) | Z:- N:- H:- C:-
 void ins_CB_FE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    M_SET(HL(), M_GET(HL())|(1<<7));
 }
 
 //SET 7,A | Z:- N:- H:- C:-
 void ins_CB_FF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    A_SET(A()|(1<<7));
 }
 
 const CPUInstruction lookup[0x10][0x10] = {
@@ -2854,8 +3273,8 @@ const CPUInstruction lookup[0x10][0x10] = {
         {{"OR B", 1, 4, ins_B0}, {"OR C", 1, 4, ins_B1}, {"OR D", 1, 4, ins_B2}, {"OR E", 1, 4, ins_B3}, {"OR H", 1, 4, ins_B4}, {"OR L", 1, 4, ins_B5}, {"OR (HL)", 1, 8, ins_B6}, {"OR A", 1, 4, ins_B7}, {"CP B", 1, 4, ins_B8}, {"CP C", 1, 4, ins_B9}, {"CP D", 1, 4, ins_BA}, {"CP E", 1, 4, ins_BB}, {"CP H", 1, 4, ins_BC}, {"CP L", 1, 4, ins_BD}, {"CP (HL)", 1, 8, ins_BE}, {"CP A", 1, 4, ins_BF}, },
         {{"RET NZ", 1, 20, ins_C0}, {"POP BC", 1, 12, ins_C1}, {"JP NZ,a16", 3, 16, ins_C2}, {"JP a16", 3, 16, ins_C3}, {"CALL NZ,a16", 3, 24, ins_C4}, {"PUSH BC", 1, 16, ins_C5}, {"ADD A,d8", 2, 8, ins_C6}, {"RST 00H", 1, 16, ins_C7}, {"RET Z", 1, 20, ins_C8}, {"RET", 1, 16, ins_C9}, {"JP Z,a16", 3, 16, ins_CA}, {"PREFIX", 1, 4, ins_CB}, {"CALL Z,a16", 3, 24, ins_CC}, {"CALL a16", 3, 24, ins_CD}, {"ADC A,d8", 2, 8, ins_CE}, {"RST 08H", 1, 16, ins_CF}, },
         {{"RET NC", 1, 20, ins_D0}, {"POP DE", 1, 12, ins_D1}, {"JP NC,a16", 3, 16, ins_D2}, {"ILLEGAL_D3", 1, 4, ins_D3}, {"CALL NC,a16", 3, 24, ins_D4}, {"PUSH DE", 1, 16, ins_D5}, {"SUB d8", 2, 8, ins_D6}, {"RST 10H", 1, 16, ins_D7}, {"RET C", 1, 20, ins_D8}, {"RETI", 1, 16, ins_D9}, {"JP C,a16", 3, 16, ins_DA}, {"ILLEGAL_DB", 1, 4, ins_DB}, {"CALL C,a16", 3, 24, ins_DC}, {"ILLEGAL_DD", 1, 4, ins_DD}, {"SBC A,d8", 2, 8, ins_DE}, {"RST 18H", 1, 16, ins_DF}, },
-        {{"LDH (a8),A", 2, 12, ins_E0}, {"POP HL", 1, 12, ins_E1}, {"LD (C),A", 1, 8, ins_E2}, {"ILLEGAL_E3", 1, 4, ins_E3}, {"ILLEGAL_E4", 1, 4, ins_E4}, {"PUSH HL", 1, 16, ins_E5}, {"AND d8", 2, 8, ins_E6}, {"RST 20H", 1, 16, ins_E7}, {"ADD SP,r8", 2, 16, ins_E8}, {"JP HL", 1, 4, ins_E9}, {"LD (a16),A", 3, 16, ins_EA}, {"ILLEGAL_EB", 1, 4, ins_EB}, {"ILLEGAL_EC", 1, 4, ins_EC}, {"ILLEGAL_ED", 1, 4, ins_ED}, {"XOR d8", 2, 8, ins_EE}, {"RST 28H", 1, 16, ins_EF}, },
-        {{"LDH A,(a8)", 2, 12, ins_F0}, {"POP AF", 1, 12, ins_F1}, {"LD A,(C)", 1, 8, ins_F2}, {"DI", 1, 4, ins_F3}, {"ILLEGAL_F4", 1, 4, ins_F4}, {"PUSH AF", 1, 16, ins_F5}, {"OR d8", 2, 8, ins_F6}, {"RST 30H", 1, 16, ins_F7}, {"LD HL,SP+r8", 2, 12, ins_F8}, {"LD SP,HL", 1, 8, ins_F9}, {"LD A,(a16)", 3, 16, ins_FA}, {"EI", 1, 4, ins_FB}, {"ILLEGAL_FC", 1, 4, ins_FC}, {"ILLEGAL_FD", 1, 4, ins_FD}, {"CP d8", 2, 8, ins_FE}, {"RST 38H", 1, 16, ins_FF}}
+        {{"LDH (a8),A", 2, 12, ins_E0}, {"POP HL", 1, 12, ins_E1}, {"LD ($FF00+C),A", 1, 8, ins_E2}, {"ILLEGAL_E3", 1, 4, ins_E3}, {"ILLEGAL_E4", 1, 4, ins_E4}, {"PUSH HL", 1, 16, ins_E5}, {"AND d8", 2, 8, ins_E6}, {"RST 20H", 1, 16, ins_E7}, {"ADD SP,r8", 2, 16, ins_E8}, {"JP HL", 1, 4, ins_E9}, {"LD (a16),A", 3, 16, ins_EA}, {"ILLEGAL_EB", 1, 4, ins_EB}, {"ILLEGAL_EC", 1, 4, ins_EC}, {"ILLEGAL_ED", 1, 4, ins_ED}, {"XOR d8", 2, 8, ins_EE}, {"RST 28H", 1, 16, ins_EF}, },
+        {{"LDH A,(a8)", 2, 12, ins_F0}, {"POP AF", 1, 12, ins_F1}, {"LD A,($FF00+C)", 1, 8, ins_F2}, {"DI", 1, 4, ins_F3}, {"ILLEGAL_F4", 1, 4, ins_F4}, {"PUSH AF", 1, 16, ins_F5}, {"OR d8", 2, 8, ins_F6}, {"RST 30H", 1, 16, ins_F7}, {"LD HL,SP+r8", 2, 12, ins_F8}, {"LD SP,HL", 1, 8, ins_F9}, {"LD A,(a16)", 3, 16, ins_FA}, {"EI", 1, 4, ins_FB}, {"ILLEGAL_FC", 1, 4, ins_FC}, {"ILLEGAL_FD", 1, 4, ins_FD}, {"CP d8", 2, 8, ins_FE}, {"RST 38H", 1, 16, ins_FF}}
 };
 
 const CPUInstruction lookup_cb[0x10][0x10] = {

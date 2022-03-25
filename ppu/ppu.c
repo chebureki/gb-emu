@@ -130,7 +130,8 @@ void ppu_register_write(void *_ppu, u16 addr, u16 abs_addr, u8 val){
         case PPU_REG_SCY: ppu->scy=val;break;
         case PPU_REG_SCX: ppu->scx=val;break;
         case PPU_REG_BGP: ppu->bg_palette=val; break;
-        case PPU_REG_OBP0: ppu->obp_palette=val; break;
+        case PPU_REG_OBP0: ppu->obp0_palette=val; break;
+        case PPU_REG_OBP1: ppu->obp1_palette=val; break;
         case PPU_REG_LCD_CONTROL: ppu->lcd_control=val; break;
 
         default:

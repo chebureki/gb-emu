@@ -59,7 +59,8 @@ typedef struct {
     u8 eligible_objects_count; //ditto
 
     u8 bg_palette;
-    u8 obp_palette;
+    u8 obp0_palette;
+    u8 obp1_palette;
 }PPU;
 
 PPU *ppu_new();

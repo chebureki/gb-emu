@@ -10,13 +10,15 @@
 
 int main() {
     gui_init();
-    Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/tetris.gb");
+    Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/cpu_instrs.gb");
+    //Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/tetris.gb");
     if(!cartridge){
         log_fatal("failed to open cartridge");
     }
     log_info("title: %s", cartridge->title);
     log_info("banks: %d", cartridge->banks_amount);
     log_info("rom-size: %d bytes", cartridge->rom_size);
+    log_info("extra ram-banks: %d",cartridge->extra_ram_size);
 
     Emulator *emu = emulator_new(cartridge);
     Renderer *renderer = renderer_new();

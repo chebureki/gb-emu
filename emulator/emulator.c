@@ -37,14 +37,14 @@ u8 emulator_boot_rom_wrapper_read(void *_c, u16 addr, u16 abs_addr){
     if(addr < 0x100)
         return boot_rom[addr];
 
-    return cartridge_bus_read(_c,addr,abs_addr);
+    return cartridge_bank0_bus_read(_c, addr, abs_addr);
 }
 
 
 void emulator_unmap_boot_rom(Emulator *emulator){
     log_debug("unmapping boot rom");
     bus_unmap(emulator->bus,0x0000,0x3FFF);
-    bus_map(emulator->bus,0x0000,0x3FFF,emulator->cartridge,cartridge_bus_read,cartridge_bus_write);
+    bus_map(emulator->bus, 0x0000, 0x3FFF, emulator->cartridge, cartridge_bank0_bus_read, cartridge_bank0_bus_write);
 }
 
 u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
@@ -95,6 +95,9 @@ u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
 
 void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
     Emulator *e = (Emulator*)_emulator;
+    //if(abs_addr == 0xff01){
+    //    log_fatal("WHO TF WRITES HERE");
+    //}
     switch (abs_addr) {
         case 0xFF00:{
             //only write to select bits
@@ -131,16 +134,16 @@ void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
 
 void emulator_map_memory(Emulator *emu){
     //0000	3FFF	16 KiB ROM bank 00	From cartridge, usually a fixed bank. $0~$100 mapped to boot-rom initially
-    bus_map(emu->bus,0x0000,0x3FFF,emu->cartridge,emulator_boot_rom_wrapper_read,cartridge_bus_write);
+    bus_map(emu->bus, 0x0000, 0x3FFF, emu->cartridge, emulator_boot_rom_wrapper_read, cartridge_bank0_bus_write);
 
     //4000	7FFF	16 KiB ROM Bank 01~NN	From cartridge, switchable bank via mapper (if any)
-    //TODO
+    bus_map(emu->bus, 0x4000, 0x7FFF, emu->cartridge, cartridge_bankn_bus_read, cartridge_bankn_bus_write);
 
     //8000	9FFF	8 KiB Video RAM (VRAM)	In CGB mode, switchable bank 0/1
     bus_map(emu->bus, 0x8000, 0x9FFF, emu->ppu, vram_bus_read, vram_bus_write);
 
     //A000	BFFF	8 KiB External RAM	From cartridge, switchable bank if any
-    //TODO
+    bus_map(emu->bus, 0xA000, 0xBFFF, emu->ppu, cartridge_external_ram_bus_read, cartridge_external_ram_bus_write);
 
     //C000	CFFF	4 KiB Work RAM (WRAM)
     bus_map(emu->bus, 0xC000, 0xCFFF, emu->workram_1, workram_bus_read, workram_bus_write);
