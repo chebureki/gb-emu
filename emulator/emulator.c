@@ -176,7 +176,7 @@ void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
         case REG_IF: e->cpu->IF = val;break;
 
         default:{
-            log_error("unimplemented io write to %04x", abs_addr);
+            log_error("unimplemented io write to %04x v:%08b", abs_addr,val);
         }
     }
 }

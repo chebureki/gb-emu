@@ -81,6 +81,8 @@ Cartridge *cartridge_from_file(char *file_path){
     fseek(file,0,SEEK_SET);
     fread(cartridge->data,1,cartridge->rom_size,file);
     fclose(file);
+
+    cartridge->selected_rom_bank = 1; //default to 1 cuz duh
     return cartridge;
 }
 
@@ -116,7 +118,9 @@ u8 cartridge_bankn_bus_read(void *_c, u16 addr, u16 abs_addr){
 void cartridge_bankn_bus_write(void *_c, u16 addr, u16 abs_addr, u8 val){
     Cartridge *c = (Cartridge*)_c;
     if(0x6000<=abs_addr && abs_addr<=0x7fff ){
-        log_error("did not switch banking mode for testing purposes");
+        log_fatal("banking modes not implemented");
+        //c->selected_rom_bank=val;
+        //log_error("did not switch banking mode for testing purposes");
         return;
     }
     //log_fatal("unknown write to rom: %04x %02x",abs_addr,val);

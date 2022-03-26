@@ -16,8 +16,6 @@ u8 workram_bus_read(void *_wr, u16 addr, u16 abs_addr){
     return wr->memory[addr];
 }
 
-int i = 0;
-
 void workram_bus_write(void *_wr, u16 addr, u16 abs_addr, u8 val){
     WorkRAM *wr = (WorkRAM*)_wr;
     wr->memory[addr] = val;
