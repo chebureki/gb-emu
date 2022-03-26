@@ -8,8 +8,8 @@
 #define LO_GET(a) (u8)((a&0xff00)>>8)
 #define HI_GET(a) (u8)(a&0x00ff)
 
-#define LO_SET(a,v) a = (a&0x00ff) | (((u8)v)<<8)
-#define HI_SET(a,v) a = (a&0xff00) | ((u8)v)
+#define LO_SET(a,v) a = (a&0x00ff) | (((u8)(v&0xff))<<8)
+#define HI_SET(a,v) a = (a&0xff00) | ((u8)(v&0xff))
 
 //one or zero, 255 => 1, 5 => 1, 0=>0
 #define OZ(v) ((v)!=0)
@@ -78,9 +78,9 @@
 #define FC_SET(v) F_TOGGLE(v,CPU_CARRYFLAG,CPU_CARRYFLAG_POS)
 
 
-#define CARRY_4(a,b) (((u16)(a&0x0f)+(u16)(b&0x0f))>0x0f)
-#define CARRY_8(a,b) (((u16)((u8)a)+(u16)((u8)b))>0xff)
-#define CARRY_16(a,b) (((u32)a+(u32)b)>0xffff)
+#define CARRY_4(a,b) (((s32)(a&0x0f)+(s32)(b&0x0f))>0x0f)
+#define CARRY_8(a,b) (((s32)((u8)a)+(s32)((u8)b))>0xff)
+#define CARRY_16(a,b) (((s32)a+(s32)b)>0xffff)
 
 #define CARRY_4C(a,b,c) (((u16)(a&0x0f)+(u16)(b&0x0f)+(u16)(c&0x0f))>0x0f)
 #define CARRY_8C(a,b,c) (((u16)((u8)a)+(u16)((u8)b)+(u16)((u8)c))>0xff)

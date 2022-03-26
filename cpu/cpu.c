@@ -75,25 +75,10 @@ int cpu_next_ins(CPU* cpu){
         bytes[i] = bus_read(cpu->bus,cpu->PC+i);
     }
 
-
-    /*
-    if(cpu->PC >= 0x100)
-        toggle =1;
-    if(toggle){
-        log_debug("%02x%02x%02x%02x pc %04x: %s AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",bytes[0],bytes[1],bytes[2],bytes[3],cpu->PC,debug,cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP);
-    }
-    if(cpu->PC == (0xc129+0x20)){
-        log_fatal("NO");
-    }
-     */
-
     char debug[16];
     sprintf(debug,ins->mnemonic_format, bytes[1],bytes[2],bytes[3]);
-    if(cpu->PC >= 0x100)
-        flag = 1;
-    if(flag){
-        log_debug("%02x%02x%02x%02x pc %04x: %s AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",bytes[0],bytes[1],bytes[2],bytes[3],cpu->PC,debug,cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP);
-    }
+    //if(cpu->PC >= 0x0200 && 0x220 >= cpu->PC)
+    //    log_debug("%02x%02x%02x%02x pc %04x: %s AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",bytes[0],bytes[1],bytes[2],bytes[3],cpu->PC,debug,cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP);
     //log_debug("%02x%02x%02x%02x pc %04x: %s AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",bytes[0],bytes[1],bytes[2],bytes[3],cpu->PC,debug,cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP);
 
 

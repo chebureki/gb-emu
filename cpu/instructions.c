@@ -257,7 +257,9 @@ void ins_20(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 }
 
 //LD HL,d16 | Z:- N:- H:- C:-
-void ins_21(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){ HL_SET(JU16(a0, a1));}
+void ins_21(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
+    HL_SET(D16());
+}
 
 //LD (HL+),A | Z:- N:- H:- C:-
 void ins_22(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
@@ -292,7 +294,25 @@ void ins_26(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //DAA  | Z:Z N:- H:0 C:C
 void ins_27(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    u8 adjust = 0;
+    if(FC())
+        adjust = 0x60;
+    if(FH())
+        adjust |= 0x06;
+    if(!FN()){
+        if((A()&0x0f) >0x09){
+            adjust |= 0x06;
+        }
+        if(A()>0x99){
+            adjust |= 0x60;
+        }
+        A_SET(A()+adjust);
+    }else{
+        A_SET(A()-adjust);
+    }
+    FC_SET(adjust>=0x60);
+    FH_SET(0);
+    FZ_SET(A()==0);
 }
 
 //JR Z,r8 | Z:- N:- H:- C:-
@@ -1221,7 +1241,8 @@ void ins_B7(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //CP B | Z:Z N:1 H:H C:C
 void ins_B8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FZ_SET(A()!=B()); FN_SET(0); FH_SET(0); FC_SET(0);
+    u8 sub = A()-B();
+    FZ_SET(sub == 0);FN_SET(1);FH_SET(CARRY_4_SUB(A(),B()));FC_SET(CARRY_8_SUB(A(),B()));
 }
 
 //CP C | Z:Z N:1 H:H C:C
@@ -1567,7 +1588,7 @@ void ins_EF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     PC_SET(0x28);
 }
 
-//LDH A,(a8) | Z:- N:- H:- C:-
+//LDH A,($ff00+a8) | Z:- N:- H:- C:-
 void ins_F0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     A_SET(M_GET(0xff00+D8()));
 }
@@ -1577,14 +1598,14 @@ void ins_F1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     AF_SET(stack_pop_u16(cpu));
 }
 
-//LD A,(C) | Z:- N:- H:- C:-
+//LD A,($ff0++C) | Z:- N:- H:- C:-
 void ins_F2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     A_SET(M_GET(0xff00+C()));
 }
 
 //DI  | Z:- N:- H:- C:-
 void ins_F3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    cpu->IME = 1;
+    cpu->IME = 0;
 }
 
 //ILLEGAL_F4  | Z:- N:- H:- C:-
