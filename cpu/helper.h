@@ -5,6 +5,12 @@
 #define GB_EMU_HELPER_H
 //some helper macros
 
+#define LO_GET(a) (u8)((a&0xff00)>>8)
+#define HI_GET(a) (u8)(a&0x00ff)
+
+#define LO_SET(a,v) a = (a&0x00ff) | (((u8)v)<<8)
+#define HI_SET(a,v) a = (a&0xff00) | ((u8)v)
+
 //one or zero, 255 => 1, 5 => 1, 0=>0
 #define OZ(v) ((v)!=0)
 

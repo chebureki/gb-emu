@@ -51,6 +51,9 @@ void emulator_unmap_boot_rom(Emulator *emulator){
 
 u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
     Emulator *e = (Emulator*)_emulator;
+    if(APU_WAVEPATTERN_RAM_FROM<=abs_addr && abs_addr<=APU_WAVEPATTERN_RAM_TO){
+        return apu_reg_bus_read(e->apu,addr,abs_addr);
+    }
     switch (abs_addr) {
         case 0xFF00:{
             u8 d = e->io.joypad;
@@ -72,6 +75,24 @@ u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
             }
             return d;
         }
+        case APU_REG_NR10:
+        case APU_REG_NR11:
+        case APU_REG_NR12:
+        case APU_REG_NR13:
+        case APU_REG_NR14:
+        case APU_REG_NR21:
+        case APU_REG_NR22:
+        case APU_REG_NR23:
+        case APU_REG_NR24:
+        case APU_REG_NR30:
+        case APU_REG_NR31:
+        case APU_REG_NR32:
+        case APU_REG_NR33:
+        case APU_REG_NR34:
+        case APU_REG_NR50:
+        case APU_REG_NR51:
+        case APU_REG_NR52:
+            return apu_reg_bus_read(e->apu,addr,abs_addr);
         case PPU_REG_LCD_CONTROL:
         case PPU_REG_LCD_STATUS:
         case PPU_REG_SCY:
@@ -99,12 +120,36 @@ u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
 
 void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
     Emulator *e = (Emulator*)_emulator;
+    if(APU_WAVEPATTERN_RAM_FROM<=abs_addr && abs_addr<=APU_WAVEPATTERN_RAM_TO){
+        apu_reg_bus_write(e->apu,addr,abs_addr,val);
+        return;
+    }
+
     switch (abs_addr) {
         case 0xFF00:{
             //only write to select bits
             e->io.joypad = val&0x30;
             return;
         }
+        case APU_REG_NR10:
+        case APU_REG_NR11:
+        case APU_REG_NR12:
+        case APU_REG_NR13:
+        case APU_REG_NR14:
+        case APU_REG_NR21:
+        case APU_REG_NR22:
+        case APU_REG_NR23:
+        case APU_REG_NR24:
+        case APU_REG_NR30:
+        case APU_REG_NR31:
+        case APU_REG_NR32:
+        case APU_REG_NR33:
+        case APU_REG_NR34:
+        case APU_REG_NR50:
+        case APU_REG_NR51:
+        case APU_REG_NR52:
+            apu_reg_bus_write(e->apu,addr,abs_addr,val);
+            break;
 
         case PPU_REG_LCD_CONTROL:
         case PPU_REG_LCD_STATUS:
@@ -127,8 +172,7 @@ void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
                 emulator_unmap_boot_rom(e);
             break;
         }
-        case REG_IE: {e->cpu->IE = val;
-            log_fatal("enabling something  %04x :%08b",e->cpu->PC,val);}break;
+        case REG_IE:  e->cpu->IE = val;     break;
         case REG_IF: e->cpu->IF = val;break;
 
         default:{
@@ -181,6 +225,7 @@ Emulator *emulator_new(Cartridge *cartridge){
     emu->bus = bus_new();
     emu->cpu = cpu_new(emu->bus);
     emu->ppu = ppu_new();
+    emu->apu = apu_new();
     emu->workram_1 = workram_new();
     emu->workram_2 = workram_new();
     emu->cartridge = cartridge;
@@ -197,6 +242,7 @@ void emulator_close(Emulator *emu){
     highram_close(emu->highram);
     cpu_close(emu->cpu);
     ppu_close(emu->ppu);
+    apu_close(emu->apu);
     //don't free cartridge!
     free(emu);
 }

@@ -4,6 +4,7 @@
 #include "../memory/memory.h"
 #include "../cartridge/cartridge.h"
 #include "../ppu/ppu.h"
+#include "../apu/apu.h"
 
 #ifndef GB_EMU_EMULATOR_H
 #define GB_EMU_EMULATOR_H
@@ -26,6 +27,7 @@ typedef struct {
     Bus *bus;
     CPU *cpu;
     PPU *ppu;
+    APU *apu;
     WorkRAM *workram_1;
     WorkRAM *workram_2;
     HighRAM *highram;

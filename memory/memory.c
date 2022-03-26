@@ -1,4 +1,5 @@
 #include "memory.h"
+#include "../common/log.h"
 
 #include <stdlib.h>
 
@@ -14,6 +15,8 @@ u8 workram_bus_read(void *_wr, u16 addr, u16 abs_addr){
     WorkRAM *wr = (WorkRAM*)_wr;
     return wr->memory[addr];
 }
+
+
 
 void workram_bus_write(void *_wr, u16 addr, u16 abs_addr, u8 val){
     WorkRAM *wr = (WorkRAM*)_wr;

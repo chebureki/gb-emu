@@ -96,11 +96,11 @@ u8 cartridge_bank0_bus_read(void *_c, u16 addr, u16 abs_addr){
 }
 void cartridge_bank0_bus_write(void *_c, u16 addr, u16 abs_addr, u8 val){
     Cartridge *c = (Cartridge*)_c;
-    if(0x2000==abs_addr){
+    if(0x2000<=abs_addr && abs_addr<=0x3fff ){
         c->selected_rom_bank = val;
         return;
     }
-    log_fatal("rom0 write?: %04x %2x 0a:%d",abs_addr,val,(val&0x0f)==0x0a);
+    log_error("rom0 write?: %04x %2x 0a:%d",abs_addr,val,(val&0x0f)==0x0a);
 
     //cartridge->data[addr];
 }
@@ -115,15 +115,16 @@ u8 cartridge_bankn_bus_read(void *_c, u16 addr, u16 abs_addr){
 }
 void cartridge_bankn_bus_write(void *_c, u16 addr, u16 abs_addr, u8 val){
     Cartridge *c = (Cartridge*)_c;
-    if(0x2000<=abs_addr && abs_addr<=0x3fff ){
-        c->selected_rom_bank = val;
+    if(0x6000<=abs_addr && abs_addr<=0x7fff ){
+        log_error("did not switch banking mode for testing purposes");
+        return;
     }
-    log_fatal("unknown write to rom: %04x %02x",abs_addr,val);
+    //log_fatal("unknown write to rom: %04x %02x",abs_addr,val);
 }
 
 u8 cartridge_external_ram_bus_read(void *_c, u16 addr, u16 abs_addr){
     log_fatal("cartridge ram read");
 }
 void cartridge_external_ram_bus_write(void *_c, u16 addr, u16 abs_addr, u8 val){
-    log_fatal("cartridge ram write");
+    log_error("cartridge ram write");
 }
