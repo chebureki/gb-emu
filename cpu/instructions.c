@@ -131,7 +131,7 @@ void ins_0C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //DEC C | Z:Z N:1 H:H C:-
 void ins_0D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FH_SET(CARRY_4_SUB(C(),-1));
+    FH_SET(CARRY_4_SUB(C(),1));
     C_SET(C()-1);
     FN_SET(1);FZ_SET(C()==0);
 }
@@ -180,7 +180,7 @@ void ins_14(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //DEC D | Z:Z N:1 H:H C:-
 void ins_15(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FH_SET(CARRY_4_SUB(D(),-1));
+    FH_SET(CARRY_4_SUB(D(),1));
     D_SET(D()-1);
     FN_SET(1);FZ_SET(D()==0);
 }
@@ -231,7 +231,7 @@ void ins_1C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //DEC E | Z:Z N:1 H:H C:-
 void ins_1D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FH_SET(CARRY_4_SUB(E(),-1));
+    FH_SET(CARRY_4_SUB(E(),1));
     E_SET(E()-1);
     FN_SET(1);FZ_SET(E()==0);
 }
@@ -280,7 +280,7 @@ void ins_24(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //DEC H | Z:Z N:1 H:H C:-
 void ins_25(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FH_SET(CARRY_4_SUB(H(),-1));
+    FH_SET(CARRY_4_SUB(H(),1));
     H_SET(H()-1);
     FN_SET(1);FZ_SET(H()==0);
 }
@@ -331,7 +331,7 @@ void ins_2C(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //DEC L | Z:Z N:1 H:H C:-
 void ins_2D(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FH_SET(CARRY_4_SUB(L(),-1));
+    FH_SET(CARRY_4_SUB(L(),1));
     L_SET(L()-1);
     FN_SET(0);FZ_SET(L()==0);
 }
@@ -380,9 +380,10 @@ void ins_34(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //DEC (HL) | Z:Z N:1 H:H C:-
 void ins_35(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    FH_SET(CARRY_4_SUB(M_GET(HL()),-1));
-    M_SET(HL(),M_GET(HL())-1);
-    FN_SET(0);FZ_SET(M_GET(HL())==0);
+    u8 m = M_GET(HL());
+    FH_SET(CARRY_4_SUB(m,1));
+    M_SET(HL(),m-1);
+    FN_SET(0);FZ_SET((m-1)==0);
 }
 
 //LD (HL),d8 | Z:- N:- H:- C:-
