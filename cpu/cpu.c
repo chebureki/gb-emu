@@ -1,7 +1,7 @@
 #include "cpu.h"
 #include "instructions.h"
+#include "helper.h"
 #include "../common/log.h"
-#include "../common/bitwise.h"
 
 #include <stdlib.h>
 
@@ -15,14 +15,42 @@ void cpu_close(CPU *cpu){
     free(cpu);
 }
 
-void cpu_clock(CPU *cpu){
-    if(cpu->extra_cycles)
-        cpu->extra_cycles--;
-    else
-        cpu->extra_cycles = cpu_next_ins(cpu);
+u8 cpu_handle_interrupts(CPU *cpu){
+    if(!cpu->IME) //master says no :^(
+        return 0;
+    if(cpu->IE){
+        log_fatal("asdf");
+    }
+    u8 flag;
+    for(flag=0x01;flag!=0;flag<<=1){
+        if(cpu->IF & cpu->IE & flag)
+            break;
+    }
+    if (!flag) {
+        return 0; //went through all flags and A: it isn't enabled in IE or not requested in IF
+    }
+    cpu->IME = 0; //should be re-enabled by reti
+    cpu->IF &= ~flag; //disable flag
+
+    u8 interrupt_offset=(flag>>1)<<3; //shift right so 1 becomes 0
+    stack_push_u16(cpu,PC());
+    PC_SET(0x40+ interrupt_offset);
+    cpu->extra_cycles=60;
+    log_fatal("asdf");
+    return 1;
 }
 
-#include <unistd.h>
+void cpu_clock(CPU *cpu){
+    if(cpu->extra_cycles){
+        cpu->extra_cycles--;
+        return;
+    }
+    if(cpu_handle_interrupts(cpu))
+        return;
+
+    cpu->extra_cycles = cpu_next_ins(cpu);
+}
+
 int cpu_next_ins(CPU* cpu){
 
     //an instruction is 4 bytes long at most
@@ -48,12 +76,13 @@ int cpu_next_ins(CPU* cpu){
 
     char debug[16];
     sprintf(debug,ins->mnemonic_format, bytes[1],bytes[2],bytes[3]);
-    //if(cpu->PC > 0x6b){
-        log_debug("%02x%02x%02x%02x pc %04x: %s AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",bytes[0],bytes[1],bytes[2],bytes[3],cpu->PC,debug,cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP);
+
+    //if(cpu->PC >= 0x0400  && cpu->PC <= 0x05ff){
+    //    log_debug("%02x%02x%02x%02x pc %04x: %s AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",bytes[0],bytes[1],bytes[2],bytes[3],cpu->PC,debug,cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP);
     //}
 
-    cpu->PC+=ins->length;
-    ins->callback(cpu,bytes[0],bytes[1],bytes[2],bytes[3]);
 
+    ins->callback(cpu,bytes[0],bytes[1],bytes[2],bytes[3]);
+    cpu->PC+=ins->length;
     return ins->cycles;
 }

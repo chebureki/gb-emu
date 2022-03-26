@@ -1,6 +1,8 @@
 #include "emulator.h"
 
 #define REG_UNMAP_BOOT_ROM 0xFF50
+#define REG_IF 0xFF0F
+#define REG_IE 0xFFFF
 
 //TODO: JESUS FUCKING CHRIST REMOVE DIS ILLEGAL SINNERY
 const u8 boot_rom[256] = {
@@ -85,6 +87,8 @@ u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
         {
             return ppu_register_read(e->ppu,addr,abs_addr);
         }
+        case REG_IE: return e->cpu->IE;
+        case REG_IF: return e->cpu->IF;
         case REG_UNMAP_BOOT_ROM: return UNDEFINED_U8; //TODO: is this ever read?
         default:{
             log_error("unimplemented io read to %04x", abs_addr);
@@ -95,9 +99,6 @@ u8 emulator_ioreg_bus_read(void *_emulator, u16 addr, u16 abs_addr){
 
 void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
     Emulator *e = (Emulator*)_emulator;
-    //if(abs_addr == 0xff01){
-    //    log_fatal("WHO TF WRITES HERE");
-    //}
     switch (abs_addr) {
         case 0xFF00:{
             //only write to select bits
@@ -126,6 +127,10 @@ void emulator_ioreg_bus_write(void *_emulator, u16 addr, u16 abs_addr, u8 val){
                 emulator_unmap_boot_rom(e);
             break;
         }
+        case REG_IE: {e->cpu->IE = val;
+            log_fatal("enabling something  %04x :%08b",e->cpu->PC,val);}break;
+        case REG_IF: e->cpu->IF = val;break;
+
         default:{
             log_error("unimplemented io write to %04x", abs_addr);
         }
@@ -167,7 +172,7 @@ void emulator_map_memory(Emulator *emu){
     bus_map(emu->bus,0xff80,0xfffe,emu->highram,highram_bus_read,highram_bus_write);
 
     //FFFF	FFFF	Interrupt Enable register (IE)
-    //TODO
+    bus_map(emu->bus,0xffff,0xffff,emu,emulator_ioreg_bus_read, emulator_ioreg_bus_write);
 
 }
 
@@ -198,6 +203,12 @@ void emulator_close(Emulator *emu){
 
 void emulator_clock(Emulator *emulator, u8 inputs){
     emulator->input_state = inputs;
+
+    //TODO: THIS IS HERE FOR TESTING PURPOSES!!!!!
+    if(emulator->ppu->state == VBLANK){
+        emulator->cpu->IF |= IF_VBLANK;
+    }
+
     cpu_clock(emulator->cpu);
     ppu_clock(emulator->ppu);
 }

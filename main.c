@@ -10,7 +10,8 @@
 
 int main() {
     gui_init();
-    Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/cpu_instrs.gb");
+    //Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/gb-test-roms/cpu_instrs/individual/01-special.gb");
+    Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/gb-test-roms/cpu_instrs/cpu_instrs.gb");
     //Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/tetris.gb");
     if(!cartridge){
         log_fatal("failed to open cartridge");

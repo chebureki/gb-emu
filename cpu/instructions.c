@@ -1,140 +1,57 @@
 #include "instructions.h"
+#include "helper.h"
 #include "../common/log.h"
 #include "../common/bitwise.h"
+
+const CPUInstruction lookup[0x10][0x10] = {
+        {{"NOP", 1, 4, ins_00}, {"LD BC,d16", 3, 12, ins_01}, {"LD (BC),A", 1, 8, ins_02}, {"INC BC", 1, 8, ins_03}, {"INC B", 1, 4, ins_04}, {"DEC B", 1, 4, ins_05}, {"LD B,d8", 2, 8, ins_06}, {"RLCA", 1, 4, ins_07}, {"LD (a16),SP", 3, 20, ins_08}, {"ADD HL,BC", 1, 8, ins_09}, {"LD A,(BC)", 1, 8, ins_0A}, {"DEC BC", 1, 8, ins_0B}, {"INC C", 1, 4, ins_0C}, {"DEC C", 1, 4, ins_0D}, {"LD C,d8", 2, 8, ins_0E}, {"RRCA", 1, 4, ins_0F}, },
+        {{"STOP d8", 2, 4, ins_10}, {"LD DE,d16", 3, 12, ins_11}, {"LD (DE),A", 1, 8, ins_12}, {"INC DE", 1, 8, ins_13}, {"INC D", 1, 4, ins_14}, {"DEC D", 1, 4, ins_15}, {"LD D,d8", 2, 8, ins_16}, {"RLA", 1, 4, ins_17}, {"JR r8", 2, 12, ins_18}, {"ADD HL,DE", 1, 8, ins_19}, {"LD A,(DE)", 1, 8, ins_1A}, {"DEC DE", 1, 8, ins_1B}, {"INC E", 1, 4, ins_1C}, {"DEC E", 1, 4, ins_1D}, {"LD E,d8", 2, 8, ins_1E}, {"RRA", 1, 4, ins_1F}, },
+        {{"JR NZ,r8", 2, 12, ins_20}, {"LD HL,d16", 3, 12, ins_21}, {"LD (HL+),A", 1, 8, ins_22}, {"INC HL", 1, 8, ins_23}, {"INC H", 1, 4, ins_24}, {"DEC H", 1, 4, ins_25}, {"LD H,d8", 2, 8, ins_26}, {"DAA", 1, 4, ins_27}, {"JR Z,r8", 2, 12, ins_28}, {"ADD HL,HL", 1, 8, ins_29}, {"LD A,(HL+)", 1, 8, ins_2A}, {"DEC HL", 1, 8, ins_2B}, {"INC L", 1, 4, ins_2C}, {"DEC L", 1, 4, ins_2D}, {"LD L,d8", 2, 8, ins_2E}, {"CPL", 1, 4, ins_2F}, },
+        {{"JR NC,r8", 2, 12, ins_30}, {"LD SP,d16", 3, 12, ins_31}, {"LD (HL-),A", 1, 8, ins_32}, {"INC SP", 1, 8, ins_33}, {"INC (HL)", 1, 12, ins_34}, {"DEC (HL)", 1, 12, ins_35}, {"LD (HL),d8", 2, 12, ins_36}, {"SCF", 1, 4, ins_37}, {"JR C,r8", 2, 12, ins_38}, {"ADD HL,SP", 1, 8, ins_39}, {"LD A,(HL-)", 1, 8, ins_3A}, {"DEC SP", 1, 8, ins_3B}, {"INC A", 1, 4, ins_3C}, {"DEC A", 1, 4, ins_3D}, {"LD A,d8", 2, 8, ins_3E}, {"CCF", 1, 4, ins_3F}, },
+        {{"LD B,B", 1, 4, ins_40}, {"LD B,C", 1, 4, ins_41}, {"LD B,D", 1, 4, ins_42}, {"LD B,E", 1, 4, ins_43}, {"LD B,H", 1, 4, ins_44}, {"LD B,L", 1, 4, ins_45}, {"LD B,(HL)", 1, 8, ins_46}, {"LD B,A", 1, 4, ins_47}, {"LD C,B", 1, 4, ins_48}, {"LD C,C", 1, 4, ins_49}, {"LD C,D", 1, 4, ins_4A}, {"LD C,E", 1, 4, ins_4B}, {"LD C,H", 1, 4, ins_4C}, {"LD C,L", 1, 4, ins_4D}, {"LD C,(HL)", 1, 8, ins_4E}, {"LD C,A", 1, 4, ins_4F}, },
+        {{"LD D,B", 1, 4, ins_50}, {"LD D,C", 1, 4, ins_51}, {"LD D,D", 1, 4, ins_52}, {"LD D,E", 1, 4, ins_53}, {"LD D,H", 1, 4, ins_54}, {"LD D,L", 1, 4, ins_55}, {"LD D,(HL)", 1, 8, ins_56}, {"LD D,A", 1, 4, ins_57}, {"LD E,B", 1, 4, ins_58}, {"LD E,C", 1, 4, ins_59}, {"LD E,D", 1, 4, ins_5A}, {"LD E,E", 1, 4, ins_5B}, {"LD E,H", 1, 4, ins_5C}, {"LD E,L", 1, 4, ins_5D}, {"LD E,(HL)", 1, 8, ins_5E}, {"LD E,A", 1, 4, ins_5F}, },
+        {{"LD H,B", 1, 4, ins_60}, {"LD H,C", 1, 4, ins_61}, {"LD H,D", 1, 4, ins_62}, {"LD H,E", 1, 4, ins_63}, {"LD H,H", 1, 4, ins_64}, {"LD H,L", 1, 4, ins_65}, {"LD H,(HL)", 1, 8, ins_66}, {"LD H,A", 1, 4, ins_67}, {"LD L,B", 1, 4, ins_68}, {"LD L,C", 1, 4, ins_69}, {"LD L,D", 1, 4, ins_6A}, {"LD L,E", 1, 4, ins_6B}, {"LD L,H", 1, 4, ins_6C}, {"LD L,L", 1, 4, ins_6D}, {"LD L,(HL)", 1, 8, ins_6E}, {"LD L,A", 1, 4, ins_6F}, },
+        {{"LD (HL),B", 1, 8, ins_70}, {"LD (HL),C", 1, 8, ins_71}, {"LD (HL),D", 1, 8, ins_72}, {"LD (HL),E", 1, 8, ins_73}, {"LD (HL),H", 1, 8, ins_74}, {"LD (HL),L", 1, 8, ins_75}, {"HALT", 1, 4, ins_76}, {"LD (HL),A", 1, 8, ins_77}, {"LD A,B", 1, 4, ins_78}, {"LD A,C", 1, 4, ins_79}, {"LD A,D", 1, 4, ins_7A}, {"LD A,E", 1, 4, ins_7B}, {"LD A,H", 1, 4, ins_7C}, {"LD A,L", 1, 4, ins_7D}, {"LD A,(HL)", 1, 8, ins_7E}, {"LD A,A", 1, 4, ins_7F}, },
+        {{"ADD A,B", 1, 4, ins_80}, {"ADD A,C", 1, 4, ins_81}, {"ADD A,D", 1, 4, ins_82}, {"ADD A,E", 1, 4, ins_83}, {"ADD A,H", 1, 4, ins_84}, {"ADD A,L", 1, 4, ins_85}, {"ADD A,(HL)", 1, 8, ins_86}, {"ADD A,A", 1, 4, ins_87}, {"ADC A,B", 1, 4, ins_88}, {"ADC A,C", 1, 4, ins_89}, {"ADC A,D", 1, 4, ins_8A}, {"ADC A,E", 1, 4, ins_8B}, {"ADC A,H", 1, 4, ins_8C}, {"ADC A,L", 1, 4, ins_8D}, {"ADC A,(HL)", 1, 8, ins_8E}, {"ADC A,A", 1, 4, ins_8F}, },
+        {{"SUB B", 1, 4, ins_90}, {"SUB C", 1, 4, ins_91}, {"SUB D", 1, 4, ins_92}, {"SUB E", 1, 4, ins_93}, {"SUB H", 1, 4, ins_94}, {"SUB L", 1, 4, ins_95}, {"SUB (HL)", 1, 8, ins_96}, {"SUB A", 1, 4, ins_97}, {"SBC A,B", 1, 4, ins_98}, {"SBC A,C", 1, 4, ins_99}, {"SBC A,D", 1, 4, ins_9A}, {"SBC A,E", 1, 4, ins_9B}, {"SBC A,H", 1, 4, ins_9C}, {"SBC A,L", 1, 4, ins_9D}, {"SBC A,(HL)", 1, 8, ins_9E}, {"SBC A,A", 1, 4, ins_9F}, },
+        {{"AND B", 1, 4, ins_A0}, {"AND C", 1, 4, ins_A1}, {"AND D", 1, 4, ins_A2}, {"AND E", 1, 4, ins_A3}, {"AND H", 1, 4, ins_A4}, {"AND L", 1, 4, ins_A5}, {"AND (HL)", 1, 8, ins_A6}, {"AND A", 1, 4, ins_A7}, {"XOR B", 1, 4, ins_A8}, {"XOR C", 1, 4, ins_A9}, {"XOR D", 1, 4, ins_AA}, {"XOR E", 1, 4, ins_AB}, {"XOR H", 1, 4, ins_AC}, {"XOR L", 1, 4, ins_AD}, {"XOR (HL)", 1, 8, ins_AE}, {"XOR A", 1, 4, ins_AF}, },
+        {{"OR B", 1, 4, ins_B0}, {"OR C", 1, 4, ins_B1}, {"OR D", 1, 4, ins_B2}, {"OR E", 1, 4, ins_B3}, {"OR H", 1, 4, ins_B4}, {"OR L", 1, 4, ins_B5}, {"OR (HL)", 1, 8, ins_B6}, {"OR A", 1, 4, ins_B7}, {"CP B", 1, 4, ins_B8}, {"CP C", 1, 4, ins_B9}, {"CP D", 1, 4, ins_BA}, {"CP E", 1, 4, ins_BB}, {"CP H", 1, 4, ins_BC}, {"CP L", 1, 4, ins_BD}, {"CP (HL)", 1, 8, ins_BE}, {"CP A", 1, 4, ins_BF}, },
+        {{"RET NZ", 1, 20, ins_C0}, {"POP BC", 1, 12, ins_C1}, {"JP NZ,a16", 3, 16, ins_C2}, {"JP a16", 3, 16, ins_C3}, {"CALL NZ,a16", 3, 24, ins_C4}, {"PUSH BC", 1, 16, ins_C5}, {"ADD A,d8", 2, 8, ins_C6}, {"RST 00H", 1, 16, ins_C7}, {"RET Z", 1, 20, ins_C8}, {"RET", 1, 16, ins_C9}, {"JP Z,a16", 3, 16, ins_CA}, {"PREFIX", 1, 4, ins_CB}, {"CALL Z,a16", 3, 24, ins_CC}, {"CALL a16", 3, 24, ins_CD}, {"ADC A,d8", 2, 8, ins_CE}, {"RST 08H", 1, 16, ins_CF}, },
+        {{"RET NC", 1, 20, ins_D0}, {"POP DE", 1, 12, ins_D1}, {"JP NC,a16", 3, 16, ins_D2}, {"ILLEGAL_D3", 1, 4, ins_D3}, {"CALL NC,a16", 3, 24, ins_D4}, {"PUSH DE", 1, 16, ins_D5}, {"SUB d8", 2, 8, ins_D6}, {"RST 10H", 1, 16, ins_D7}, {"RET C", 1, 20, ins_D8}, {"RETI", 1, 16, ins_D9}, {"JP C,a16", 3, 16, ins_DA}, {"ILLEGAL_DB", 1, 4, ins_DB}, {"CALL C,a16", 3, 24, ins_DC}, {"ILLEGAL_DD", 1, 4, ins_DD}, {"SBC A,d8", 2, 8, ins_DE}, {"RST 18H", 1, 16, ins_DF}, },
+        {{"LDH (a8),A", 2, 12, ins_E0}, {"POP HL", 1, 12, ins_E1}, {"LD ($FF00+C),A", 1, 8, ins_E2}, {"ILLEGAL_E3", 1, 4, ins_E3}, {"ILLEGAL_E4", 1, 4, ins_E4}, {"PUSH HL", 1, 16, ins_E5}, {"AND d8", 2, 8, ins_E6}, {"RST 20H", 1, 16, ins_E7}, {"ADD SP,r8", 2, 16, ins_E8}, {"JP HL", 1, 4, ins_E9}, {"LD (a16),A", 3, 16, ins_EA}, {"ILLEGAL_EB", 1, 4, ins_EB}, {"ILLEGAL_EC", 1, 4, ins_EC}, {"ILLEGAL_ED", 1, 4, ins_ED}, {"XOR d8", 2, 8, ins_EE}, {"RST 28H", 1, 16, ins_EF}, },
+        {{"LDH A,(a8)", 2, 12, ins_F0}, {"POP AF", 1, 12, ins_F1}, {"LD A,($FF00+C)", 1, 8, ins_F2}, {"DI", 1, 4, ins_F3}, {"ILLEGAL_F4", 1, 4, ins_F4}, {"PUSH AF", 1, 16, ins_F5}, {"OR d8", 2, 8, ins_F6}, {"RST 30H", 1, 16, ins_F7}, {"LD HL,SP+r8", 2, 12, ins_F8}, {"LD SP,HL", 1, 8, ins_F9}, {"LD A,(a16)", 3, 16, ins_FA}, {"EI", 1, 4, ins_FB}, {"ILLEGAL_FC", 1, 4, ins_FC}, {"ILLEGAL_FD", 1, 4, ins_FD}, {"CP d8", 2, 8, ins_FE}, {"RST 38H", 1, 16, ins_FF}}
+};
+
+const CPUInstruction lookup_cb[0x10][0x10] = {
+        {{"RLC B", 2, 8, ins_CB_00}, {"RLC C", 2, 8, ins_CB_01}, {"RLC D", 2, 8, ins_CB_02}, {"RLC E", 2, 8, ins_CB_03}, {"RLC H", 2, 8, ins_CB_04}, {"RLC L", 2, 8, ins_CB_05}, {"RLC (HL)", 2, 16, ins_CB_06}, {"RLC A", 2, 8, ins_CB_07}, {"RRC B", 2, 8, ins_CB_08}, {"RRC C", 2, 8, ins_CB_09}, {"RRC D", 2, 8, ins_CB_0A}, {"RRC E", 2, 8, ins_CB_0B}, {"RRC H", 2, 8, ins_CB_0C}, {"RRC L", 2, 8, ins_CB_0D}, {"RRC (HL)", 2, 16, ins_CB_0E}, {"RRC A", 2, 8, ins_CB_0F}, },
+        {{"RL B", 2, 8, ins_CB_10}, {"RL C", 2, 8, ins_CB_11}, {"RL D", 2, 8, ins_CB_12}, {"RL E", 2, 8, ins_CB_13}, {"RL H", 2, 8, ins_CB_14}, {"RL L", 2, 8, ins_CB_15}, {"RL (HL)", 2, 16, ins_CB_16}, {"RL A", 2, 8, ins_CB_17}, {"RR B", 2, 8, ins_CB_18}, {"RR C", 2, 8, ins_CB_19}, {"RR D", 2, 8, ins_CB_1A}, {"RR E", 2, 8, ins_CB_1B}, {"RR H", 2, 8, ins_CB_1C}, {"RR L", 2, 8, ins_CB_1D}, {"RR (HL)", 2, 16, ins_CB_1E}, {"RR A", 2, 8, ins_CB_1F}, },
+        {{"SLA B", 2, 8, ins_CB_20}, {"SLA C", 2, 8, ins_CB_21}, {"SLA D", 2, 8, ins_CB_22}, {"SLA E", 2, 8, ins_CB_23}, {"SLA H", 2, 8, ins_CB_24}, {"SLA L", 2, 8, ins_CB_25}, {"SLA (HL)", 2, 16, ins_CB_26}, {"SLA A", 2, 8, ins_CB_27}, {"SRA B", 2, 8, ins_CB_28}, {"SRA C", 2, 8, ins_CB_29}, {"SRA D", 2, 8, ins_CB_2A}, {"SRA E", 2, 8, ins_CB_2B}, {"SRA H", 2, 8, ins_CB_2C}, {"SRA L", 2, 8, ins_CB_2D}, {"SRA (HL)", 2, 16, ins_CB_2E}, {"SRA A", 2, 8, ins_CB_2F}, },
+        {{"SWAP B", 2, 8, ins_CB_30}, {"SWAP C", 2, 8, ins_CB_31}, {"SWAP D", 2, 8, ins_CB_32}, {"SWAP E", 2, 8, ins_CB_33}, {"SWAP H", 2, 8, ins_CB_34}, {"SWAP L", 2, 8, ins_CB_35}, {"SWAP (HL)", 2, 16, ins_CB_36}, {"SWAP A", 2, 8, ins_CB_37}, {"SRL B", 2, 8, ins_CB_38}, {"SRL C", 2, 8, ins_CB_39}, {"SRL D", 2, 8, ins_CB_3A}, {"SRL E", 2, 8, ins_CB_3B}, {"SRL H", 2, 8, ins_CB_3C}, {"SRL L", 2, 8, ins_CB_3D}, {"SRL (HL)", 2, 16, ins_CB_3E}, {"SRL A", 2, 8, ins_CB_3F}, },
+        {{"BIT 0,B", 2, 8, ins_CB_40}, {"BIT 0,C", 2, 8, ins_CB_41}, {"BIT 0,D", 2, 8, ins_CB_42}, {"BIT 0,E", 2, 8, ins_CB_43}, {"BIT 0,H", 2, 8, ins_CB_44}, {"BIT 0,L", 2, 8, ins_CB_45}, {"BIT 0,(HL)", 2, 12, ins_CB_46}, {"BIT 0,A", 2, 8, ins_CB_47}, {"BIT 1,B", 2, 8, ins_CB_48}, {"BIT 1,C", 2, 8, ins_CB_49}, {"BIT 1,D", 2, 8, ins_CB_4A}, {"BIT 1,E", 2, 8, ins_CB_4B}, {"BIT 1,H", 2, 8, ins_CB_4C}, {"BIT 1,L", 2, 8, ins_CB_4D}, {"BIT 1,(HL)", 2, 12, ins_CB_4E}, {"BIT 1,A", 2, 8, ins_CB_4F}, },
+        {{"BIT 2,B", 2, 8, ins_CB_50}, {"BIT 2,C", 2, 8, ins_CB_51}, {"BIT 2,D", 2, 8, ins_CB_52}, {"BIT 2,E", 2, 8, ins_CB_53}, {"BIT 2,H", 2, 8, ins_CB_54}, {"BIT 2,L", 2, 8, ins_CB_55}, {"BIT 2,(HL)", 2, 12, ins_CB_56}, {"BIT 2,A", 2, 8, ins_CB_57}, {"BIT 3,B", 2, 8, ins_CB_58}, {"BIT 3,C", 2, 8, ins_CB_59}, {"BIT 3,D", 2, 8, ins_CB_5A}, {"BIT 3,E", 2, 8, ins_CB_5B}, {"BIT 3,H", 2, 8, ins_CB_5C}, {"BIT 3,L", 2, 8, ins_CB_5D}, {"BIT 3,(HL)", 2, 12, ins_CB_5E}, {"BIT 3,A", 2, 8, ins_CB_5F}, },
+        {{"BIT 4,B", 2, 8, ins_CB_60}, {"BIT 4,C", 2, 8, ins_CB_61}, {"BIT 4,D", 2, 8, ins_CB_62}, {"BIT 4,E", 2, 8, ins_CB_63}, {"BIT 4,H", 2, 8, ins_CB_64}, {"BIT 4,L", 2, 8, ins_CB_65}, {"BIT 4,(HL)", 2, 12, ins_CB_66}, {"BIT 4,A", 2, 8, ins_CB_67}, {"BIT 5,B", 2, 8, ins_CB_68}, {"BIT 5,C", 2, 8, ins_CB_69}, {"BIT 5,D", 2, 8, ins_CB_6A}, {"BIT 5,E", 2, 8, ins_CB_6B}, {"BIT 5,H", 2, 8, ins_CB_6C}, {"BIT 5,L", 2, 8, ins_CB_6D}, {"BIT 5,(HL)", 2, 12, ins_CB_6E}, {"BIT 5,A", 2, 8, ins_CB_6F}, },
+        {{"BIT 6,B", 2, 8, ins_CB_70}, {"BIT 6,C", 2, 8, ins_CB_71}, {"BIT 6,D", 2, 8, ins_CB_72}, {"BIT 6,E", 2, 8, ins_CB_73}, {"BIT 6,H", 2, 8, ins_CB_74}, {"BIT 6,L", 2, 8, ins_CB_75}, {"BIT 6,(HL)", 2, 12, ins_CB_76}, {"BIT 6,A", 2, 8, ins_CB_77}, {"BIT 7,B", 2, 8, ins_CB_78}, {"BIT 7,C", 2, 8, ins_CB_79}, {"BIT 7,D", 2, 8, ins_CB_7A}, {"BIT 7,E", 2, 8, ins_CB_7B}, {"BIT 7,H", 2, 8, ins_CB_7C}, {"BIT 7,L", 2, 8, ins_CB_7D}, {"BIT 7,(HL)", 2, 12, ins_CB_7E}, {"BIT 7,A", 2, 8, ins_CB_7F}, },
+        {{"RES 0,B", 2, 8, ins_CB_80}, {"RES 0,C", 2, 8, ins_CB_81}, {"RES 0,D", 2, 8, ins_CB_82}, {"RES 0,E", 2, 8, ins_CB_83}, {"RES 0,H", 2, 8, ins_CB_84}, {"RES 0,L", 2, 8, ins_CB_85}, {"RES 0,(HL)", 2, 16, ins_CB_86}, {"RES 0,A", 2, 8, ins_CB_87}, {"RES 1,B", 2, 8, ins_CB_88}, {"RES 1,C", 2, 8, ins_CB_89}, {"RES 1,D", 2, 8, ins_CB_8A}, {"RES 1,E", 2, 8, ins_CB_8B}, {"RES 1,H", 2, 8, ins_CB_8C}, {"RES 1,L", 2, 8, ins_CB_8D}, {"RES 1,(HL)", 2, 16, ins_CB_8E}, {"RES 1,A", 2, 8, ins_CB_8F}, },
+        {{"RES 2,B", 2, 8, ins_CB_90}, {"RES 2,C", 2, 8, ins_CB_91}, {"RES 2,D", 2, 8, ins_CB_92}, {"RES 2,E", 2, 8, ins_CB_93}, {"RES 2,H", 2, 8, ins_CB_94}, {"RES 2,L", 2, 8, ins_CB_95}, {"RES 2,(HL)", 2, 16, ins_CB_96}, {"RES 2,A", 2, 8, ins_CB_97}, {"RES 3,B", 2, 8, ins_CB_98}, {"RES 3,C", 2, 8, ins_CB_99}, {"RES 3,D", 2, 8, ins_CB_9A}, {"RES 3,E", 2, 8, ins_CB_9B}, {"RES 3,H", 2, 8, ins_CB_9C}, {"RES 3,L", 2, 8, ins_CB_9D}, {"RES 3,(HL)", 2, 16, ins_CB_9E}, {"RES 3,A", 2, 8, ins_CB_9F}, },
+        {{"RES 4,B", 2, 8, ins_CB_A0}, {"RES 4,C", 2, 8, ins_CB_A1}, {"RES 4,D", 2, 8, ins_CB_A2}, {"RES 4,E", 2, 8, ins_CB_A3}, {"RES 4,H", 2, 8, ins_CB_A4}, {"RES 4,L", 2, 8, ins_CB_A5}, {"RES 4,(HL)", 2, 16, ins_CB_A6}, {"RES 4,A", 2, 8, ins_CB_A7}, {"RES 5,B", 2, 8, ins_CB_A8}, {"RES 5,C", 2, 8, ins_CB_A9}, {"RES 5,D", 2, 8, ins_CB_AA}, {"RES 5,E", 2, 8, ins_CB_AB}, {"RES 5,H", 2, 8, ins_CB_AC}, {"RES 5,L", 2, 8, ins_CB_AD}, {"RES 5,(HL)", 2, 16, ins_CB_AE}, {"RES 5,A", 2, 8, ins_CB_AF}, },
+        {{"RES 6,B", 2, 8, ins_CB_B0}, {"RES 6,C", 2, 8, ins_CB_B1}, {"RES 6,D", 2, 8, ins_CB_B2}, {"RES 6,E", 2, 8, ins_CB_B3}, {"RES 6,H", 2, 8, ins_CB_B4}, {"RES 6,L", 2, 8, ins_CB_B5}, {"RES 6,(HL)", 2, 16, ins_CB_B6}, {"RES 6,A", 2, 8, ins_CB_B7}, {"RES 7,B", 2, 8, ins_CB_B8}, {"RES 7,C", 2, 8, ins_CB_B9}, {"RES 7,D", 2, 8, ins_CB_BA}, {"RES 7,E", 2, 8, ins_CB_BB}, {"RES 7,H", 2, 8, ins_CB_BC}, {"RES 7,L", 2, 8, ins_CB_BD}, {"RES 7,(HL)", 2, 16, ins_CB_BE}, {"RES 7,A", 2, 8, ins_CB_BF}, },
+        {{"SET 0,B", 2, 8, ins_CB_C0}, {"SET 0,C", 2, 8, ins_CB_C1}, {"SET 0,D", 2, 8, ins_CB_C2}, {"SET 0,E", 2, 8, ins_CB_C3}, {"SET 0,H", 2, 8, ins_CB_C4}, {"SET 0,L", 2, 8, ins_CB_C5}, {"SET 0,(HL)", 2, 16, ins_CB_C6}, {"SET 0,A", 2, 8, ins_CB_C7}, {"SET 1,B", 2, 8, ins_CB_C8}, {"SET 1,C", 2, 8, ins_CB_C9}, {"SET 1,D", 2, 8, ins_CB_CA}, {"SET 1,E", 2, 8, ins_CB_CB}, {"SET 1,H", 2, 8, ins_CB_CC}, {"SET 1,L", 2, 8, ins_CB_CD}, {"SET 1,(HL)", 2, 16, ins_CB_CE}, {"SET 1,A", 2, 8, ins_CB_CF}, },
+        {{"SET 2,B", 2, 8, ins_CB_D0}, {"SET 2,C", 2, 8, ins_CB_D1}, {"SET 2,D", 2, 8, ins_CB_D2}, {"SET 2,E", 2, 8, ins_CB_D3}, {"SET 2,H", 2, 8, ins_CB_D4}, {"SET 2,L", 2, 8, ins_CB_D5}, {"SET 2,(HL)", 2, 16, ins_CB_D6}, {"SET 2,A", 2, 8, ins_CB_D7}, {"SET 3,B", 2, 8, ins_CB_D8}, {"SET 3,C", 2, 8, ins_CB_D9}, {"SET 3,D", 2, 8, ins_CB_DA}, {"SET 3,E", 2, 8, ins_CB_DB}, {"SET 3,H", 2, 8, ins_CB_DC}, {"SET 3,L", 2, 8, ins_CB_DD}, {"SET 3,(HL)", 2, 16, ins_CB_DE}, {"SET 3,A", 2, 8, ins_CB_DF}, },
+        {{"SET 4,B", 2, 8, ins_CB_E0}, {"SET 4,C", 2, 8, ins_CB_E1}, {"SET 4,D", 2, 8, ins_CB_E2}, {"SET 4,E", 2, 8, ins_CB_E3}, {"SET 4,H", 2, 8, ins_CB_E4}, {"SET 4,L", 2, 8, ins_CB_E5}, {"SET 4,(HL)", 2, 16, ins_CB_E6}, {"SET 4,A", 2, 8, ins_CB_E7}, {"SET 5,B", 2, 8, ins_CB_E8}, {"SET 5,C", 2, 8, ins_CB_E9}, {"SET 5,D", 2, 8, ins_CB_EA}, {"SET 5,E", 2, 8, ins_CB_EB}, {"SET 5,H", 2, 8, ins_CB_EC}, {"SET 5,L", 2, 8, ins_CB_ED}, {"SET 5,(HL)", 2, 16, ins_CB_EE}, {"SET 5,A", 2, 8, ins_CB_EF}, },
+        {{"SET 6,B", 2, 8, ins_CB_F0}, {"SET 6,C", 2, 8, ins_CB_F1}, {"SET 6,D", 2, 8, ins_CB_F2}, {"SET 6,E", 2, 8, ins_CB_F3}, {"SET 6,H", 2, 8, ins_CB_F4}, {"SET 6,L", 2, 8, ins_CB_F5}, {"SET 6,(HL)", 2, 16, ins_CB_F6}, {"SET 6,A", 2, 8, ins_CB_F7}, {"SET 7,B", 2, 8, ins_CB_F8}, {"SET 7,C", 2, 8, ins_CB_F9}, {"SET 7,D", 2, 8, ins_CB_FA}, {"SET 7,E", 2, 8, ins_CB_FB}, {"SET 7,H", 2, 8, ins_CB_FC}, {"SET 7,L", 2, 8, ins_CB_FD}, {"SET 7,(HL)", 2, 16, ins_CB_FE}, {"SET 7,A", 2, 8, ins_CB_FF},}
+};
+
+const CPUInstruction *cpu_fetch_instruction(u8 ins){
+    return &lookup[left_nibble(ins)][right_nibble(ins)];
+}
+
+const CPUInstruction *cpu_fetch_instruction_cb(u8 a0){
+    return &lookup_cb[left_nibble(a0)][right_nibble(a0)];
+}
 
 #define UNIMPLEMENTED() log_fatal("PC: %04x UNIMPLEMENTED INSTRUCTION %02x%02x",cpu->PC,ins,a0)
 #define ILLEGAL_INS() log_fatal("PC: %04x reached illegal instruction %02x%02x",cpu->PC,ins,a0);
 
-//TODO: whats the difference between rl r and rlc r?
-
-//some helper macros
-
-//one or zero, 255 => 1, 5 => 1, 0=>0
-#define OZ(v) ((v)!=0)
-
-//memory get & set
-#define M_GET(a) (bus_read(cpu->bus, a))
-#define M_SET(a,v) bus_write(cpu->bus, a, v)
-
-//d16 is always in the second two bytes
-#define D16() (JU16(a0,a1))
-//same for a16
-#define A16() (JU16(a0,a1))
-
-#define D8() (a0)
-//signed 8 bits
-#define R8() (s8)D8()
-
-#define AF() (cpu->AF)
-#define AF_SET(v) cpu->AF = v
-
-#define BC() (cpu->BC)
-#define BC_SET(v) cpu->BC = v
-
-#define DE() (cpu->DE)
-#define DE_SET(v) cpu->DE = v
-
-#define HL() (cpu->HL)
-#define HL_SET(v) cpu->HL = v
-#define A() (LO_GET(cpu->AF))
-#define F() (HI_GET(cpu->AF))
-#define A_SET(v) LO_SET(cpu->AF,v)
-#define F_SET(v) HI_SET(cpu->AF,v)
-
-#define B() (LO_GET(cpu->BC))
-#define C() (HI_GET(cpu->BC))
-#define B_SET(v) LO_SET(cpu->BC,v)
-#define C_SET(v) HI_SET(cpu->BC,v)
-
-#define D() (LO_GET(cpu->DE))
-#define E() (HI_GET(cpu->DE))
-#define D_SET(v) LO_SET(cpu->DE,v)
-#define E_SET(v) HI_SET(cpu->DE,v)
-
-#define H() (LO_GET(cpu->HL))
-#define L() (HI_GET(cpu->HL))
-#define H_SET(v) (LO_SET(cpu->HL,v))
-#define L_SET(v) (HI_SET(cpu->HL,v))
-
-#define SP() (cpu->SP)
-#define SP_SET(v) cpu->SP=v
-
-#define PC() (cpu->PC)
-#define PC_SET(v) cpu->PC=v
-
-//flags
-#define FZ() (((F())&CPU_ZEROFLAG)>>CPU_ZEROFLAG_POS)
-#define FN() (((F())&CPU_SUBTRACTIONFLAG)>>CPU_SUBTRACTIONFLAG_POS)
-#define FH() (((F())&CPU_HALFCARRYFLAG)>>CPU_HALFCARRYFLAG_POS)
-#define FC() (((F())&CPU_CARRYFLAG)>>CPU_CARRYFLAG_POS)
-
-
-#define F_TOGGLE(v,f,p) F_SET(F()&(~(f))|((u8)OZ(v)<<((u8)p)))
-#define FZ_SET(v) F_TOGGLE(v,CPU_ZEROFLAG,CPU_ZEROFLAG_POS)
-#define FN_SET(v) F_TOGGLE(v,CPU_SUBTRACTIONFLAG,CPU_SUBTRACTIONFLAG_POS)
-#define FH_SET(v) F_TOGGLE(v,CPU_HALFCARRYFLAG,CPU_HALFCARRYFLAG_POS)
-#define FC_SET(v) F_TOGGLE(v,CPU_CARRYFLAG,CPU_CARRYFLAG_POS)
-
-
-#define CARRY_4(a,b) (((u16)(a&0x0f)+(u16)(b&0x0f))>0x0f)
-#define CARRY_8(a,b) (((u16)((u8)a)+(u16)((u8)b))>0xff)
-#define CARRY_16(a,b) (((u32)a+(u32)b)>0xffff)
-
-#define CARRY_4C(a,b,c) (((u16)(a&0x0f)+(u16)(b&0x0f)+(u16)(c&0x0f))>0x0f)
-#define CARRY_8C(a,b,c) (((u16)((u8)a)+(u16)((u8)b)+(u16)((u8)c))>0xff)
-#define CARRY_16C(a,b,c) (((u32)a+(u32)b+(u32)c)>0xffff)
-
-#define CARRY_4_SUB(a,b) (((s16)a-(s16)b)<0)
-#define CARRY_8_SUB(a,b) (((s16)a-(s16)b)<0)
-#define CARRY_16_SUB(a,b) (((s32)a-(s32)b)<0)
-
-#define CARRY_4_SUBC(a,b,c) (((s16)a-(s16)b-(s16)c)<0)
-#define CARRY_8_SUBC(a,b,c) (((s16)a-(s16)b-(s16)c)<0)
-#define CARRY_16_SUBC(a,b,c) (((s32)a-(s32)b-(s32)c)<0)
-
-#define SWAP8(a) ((u8)((a&0xf0)>>4)) | ((u8)((a&0x0f)<<4))
-
-void stack_push_u8(CPU *cpu, u8 d){
-    M_SET(SP(),d);
-    SP_SET(SP()-1);
-}
-
-u8 stack_pop_u8(CPU *cpu){
-    SP_SET(SP()+1);
-    u8 v = M_GET(SP());
-    return v;
-}
-
-void stack_push_u16(CPU *cpu, u16 d){
-    //little endian aren't we?
-    stack_push_u8(cpu,(d&0xff00)>>8);
-    stack_push_u8(cpu,(d&0x00ff));
-}
-
-
-u16 stack_pop_u16(CPU *cpu){
-    u16 v = 0;
-    v |= stack_pop_u8(cpu);
-    v |= ((u16)stack_pop_u8(cpu))<<8;
-    return v;
-}
-
-//gimme generics
-u16 rotl_u16(u16 v, int s){
-    return (v<<s) | (v>>(sizeof (v)*8-s));
-}
-
-u8 rotl_u8(u8 v, int s){
-    return (v<<s) | (v>>(sizeof (v)*8-s));
-}
-
-u16 rotr_u16(u16 v, int s){
-    return (v>>s) | (v<<(sizeof (v)*8-s));
-}
-
-u8 rotr_u8(u8 v, int s){
-    return (v>>s) | (v<<(sizeof (v)*8-s));
-}
 
 //NOP  | Z:- N:- H:- C:-
 void ins_00(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){}
@@ -1516,7 +1433,8 @@ void ins_D8(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RETI  | Z:- N:- H:- C:-
 void ins_D9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    UNIMPLEMENTED();
+    PC_SET(stack_pop_u16(cpu));
+    cpu->IME = 1;
 }
 
 //JP C,a16 | Z:- N:- H:- C:-
@@ -1665,7 +1583,7 @@ void ins_F2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //DI  | Z:- N:- H:- C:-
 void ins_F3(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    log_error("did not disable interrupts for testing reasons, fix me");
+    cpu->IME = 1;
 }
 
 //ILLEGAL_F4  | Z:- N:- H:- C:-
@@ -1711,8 +1629,7 @@ void ins_FA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //EI  | Z:- N:- H:- C:-
 void ins_FB(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-
-    UNIMPLEMENTED();
+    cpu->IME=1;
 }
 
 //ILLEGAL_FC  | Z:- N:- H:- C:-
@@ -3256,50 +3173,4 @@ void ins_CB_FE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 //SET 7,A | Z:- N:- H:- C:-
 void ins_CB_FF(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     A_SET(A()|(1<<7));
-}
-
-const CPUInstruction lookup[0x10][0x10] = {
-        {{"NOP", 1, 4, ins_00}, {"LD BC,d16", 3, 12, ins_01}, {"LD (BC),A", 1, 8, ins_02}, {"INC BC", 1, 8, ins_03}, {"INC B", 1, 4, ins_04}, {"DEC B", 1, 4, ins_05}, {"LD B,d8", 2, 8, ins_06}, {"RLCA", 1, 4, ins_07}, {"LD (a16),SP", 3, 20, ins_08}, {"ADD HL,BC", 1, 8, ins_09}, {"LD A,(BC)", 1, 8, ins_0A}, {"DEC BC", 1, 8, ins_0B}, {"INC C", 1, 4, ins_0C}, {"DEC C", 1, 4, ins_0D}, {"LD C,d8", 2, 8, ins_0E}, {"RRCA", 1, 4, ins_0F}, },
-        {{"STOP d8", 2, 4, ins_10}, {"LD DE,d16", 3, 12, ins_11}, {"LD (DE),A", 1, 8, ins_12}, {"INC DE", 1, 8, ins_13}, {"INC D", 1, 4, ins_14}, {"DEC D", 1, 4, ins_15}, {"LD D,d8", 2, 8, ins_16}, {"RLA", 1, 4, ins_17}, {"JR r8", 2, 12, ins_18}, {"ADD HL,DE", 1, 8, ins_19}, {"LD A,(DE)", 1, 8, ins_1A}, {"DEC DE", 1, 8, ins_1B}, {"INC E", 1, 4, ins_1C}, {"DEC E", 1, 4, ins_1D}, {"LD E,d8", 2, 8, ins_1E}, {"RRA", 1, 4, ins_1F}, },
-        {{"JR NZ,r8", 2, 12, ins_20}, {"LD HL,d16", 3, 12, ins_21}, {"LD (HL+),A", 1, 8, ins_22}, {"INC HL", 1, 8, ins_23}, {"INC H", 1, 4, ins_24}, {"DEC H", 1, 4, ins_25}, {"LD H,d8", 2, 8, ins_26}, {"DAA", 1, 4, ins_27}, {"JR Z,r8", 2, 12, ins_28}, {"ADD HL,HL", 1, 8, ins_29}, {"LD A,(HL+)", 1, 8, ins_2A}, {"DEC HL", 1, 8, ins_2B}, {"INC L", 1, 4, ins_2C}, {"DEC L", 1, 4, ins_2D}, {"LD L,d8", 2, 8, ins_2E}, {"CPL", 1, 4, ins_2F}, },
-        {{"JR NC,r8", 2, 12, ins_30}, {"LD SP,d16", 3, 12, ins_31}, {"LD (HL-),A", 1, 8, ins_32}, {"INC SP", 1, 8, ins_33}, {"INC (HL)", 1, 12, ins_34}, {"DEC (HL)", 1, 12, ins_35}, {"LD (HL),d8", 2, 12, ins_36}, {"SCF", 1, 4, ins_37}, {"JR C,r8", 2, 12, ins_38}, {"ADD HL,SP", 1, 8, ins_39}, {"LD A,(HL-)", 1, 8, ins_3A}, {"DEC SP", 1, 8, ins_3B}, {"INC A", 1, 4, ins_3C}, {"DEC A", 1, 4, ins_3D}, {"LD A,d8", 2, 8, ins_3E}, {"CCF", 1, 4, ins_3F}, },
-        {{"LD B,B", 1, 4, ins_40}, {"LD B,C", 1, 4, ins_41}, {"LD B,D", 1, 4, ins_42}, {"LD B,E", 1, 4, ins_43}, {"LD B,H", 1, 4, ins_44}, {"LD B,L", 1, 4, ins_45}, {"LD B,(HL)", 1, 8, ins_46}, {"LD B,A", 1, 4, ins_47}, {"LD C,B", 1, 4, ins_48}, {"LD C,C", 1, 4, ins_49}, {"LD C,D", 1, 4, ins_4A}, {"LD C,E", 1, 4, ins_4B}, {"LD C,H", 1, 4, ins_4C}, {"LD C,L", 1, 4, ins_4D}, {"LD C,(HL)", 1, 8, ins_4E}, {"LD C,A", 1, 4, ins_4F}, },
-        {{"LD D,B", 1, 4, ins_50}, {"LD D,C", 1, 4, ins_51}, {"LD D,D", 1, 4, ins_52}, {"LD D,E", 1, 4, ins_53}, {"LD D,H", 1, 4, ins_54}, {"LD D,L", 1, 4, ins_55}, {"LD D,(HL)", 1, 8, ins_56}, {"LD D,A", 1, 4, ins_57}, {"LD E,B", 1, 4, ins_58}, {"LD E,C", 1, 4, ins_59}, {"LD E,D", 1, 4, ins_5A}, {"LD E,E", 1, 4, ins_5B}, {"LD E,H", 1, 4, ins_5C}, {"LD E,L", 1, 4, ins_5D}, {"LD E,(HL)", 1, 8, ins_5E}, {"LD E,A", 1, 4, ins_5F}, },
-        {{"LD H,B", 1, 4, ins_60}, {"LD H,C", 1, 4, ins_61}, {"LD H,D", 1, 4, ins_62}, {"LD H,E", 1, 4, ins_63}, {"LD H,H", 1, 4, ins_64}, {"LD H,L", 1, 4, ins_65}, {"LD H,(HL)", 1, 8, ins_66}, {"LD H,A", 1, 4, ins_67}, {"LD L,B", 1, 4, ins_68}, {"LD L,C", 1, 4, ins_69}, {"LD L,D", 1, 4, ins_6A}, {"LD L,E", 1, 4, ins_6B}, {"LD L,H", 1, 4, ins_6C}, {"LD L,L", 1, 4, ins_6D}, {"LD L,(HL)", 1, 8, ins_6E}, {"LD L,A", 1, 4, ins_6F}, },
-        {{"LD (HL),B", 1, 8, ins_70}, {"LD (HL),C", 1, 8, ins_71}, {"LD (HL),D", 1, 8, ins_72}, {"LD (HL),E", 1, 8, ins_73}, {"LD (HL),H", 1, 8, ins_74}, {"LD (HL),L", 1, 8, ins_75}, {"HALT", 1, 4, ins_76}, {"LD (HL),A", 1, 8, ins_77}, {"LD A,B", 1, 4, ins_78}, {"LD A,C", 1, 4, ins_79}, {"LD A,D", 1, 4, ins_7A}, {"LD A,E", 1, 4, ins_7B}, {"LD A,H", 1, 4, ins_7C}, {"LD A,L", 1, 4, ins_7D}, {"LD A,(HL)", 1, 8, ins_7E}, {"LD A,A", 1, 4, ins_7F}, },
-        {{"ADD A,B", 1, 4, ins_80}, {"ADD A,C", 1, 4, ins_81}, {"ADD A,D", 1, 4, ins_82}, {"ADD A,E", 1, 4, ins_83}, {"ADD A,H", 1, 4, ins_84}, {"ADD A,L", 1, 4, ins_85}, {"ADD A,(HL)", 1, 8, ins_86}, {"ADD A,A", 1, 4, ins_87}, {"ADC A,B", 1, 4, ins_88}, {"ADC A,C", 1, 4, ins_89}, {"ADC A,D", 1, 4, ins_8A}, {"ADC A,E", 1, 4, ins_8B}, {"ADC A,H", 1, 4, ins_8C}, {"ADC A,L", 1, 4, ins_8D}, {"ADC A,(HL)", 1, 8, ins_8E}, {"ADC A,A", 1, 4, ins_8F}, },
-        {{"SUB B", 1, 4, ins_90}, {"SUB C", 1, 4, ins_91}, {"SUB D", 1, 4, ins_92}, {"SUB E", 1, 4, ins_93}, {"SUB H", 1, 4, ins_94}, {"SUB L", 1, 4, ins_95}, {"SUB (HL)", 1, 8, ins_96}, {"SUB A", 1, 4, ins_97}, {"SBC A,B", 1, 4, ins_98}, {"SBC A,C", 1, 4, ins_99}, {"SBC A,D", 1, 4, ins_9A}, {"SBC A,E", 1, 4, ins_9B}, {"SBC A,H", 1, 4, ins_9C}, {"SBC A,L", 1, 4, ins_9D}, {"SBC A,(HL)", 1, 8, ins_9E}, {"SBC A,A", 1, 4, ins_9F}, },
-        {{"AND B", 1, 4, ins_A0}, {"AND C", 1, 4, ins_A1}, {"AND D", 1, 4, ins_A2}, {"AND E", 1, 4, ins_A3}, {"AND H", 1, 4, ins_A4}, {"AND L", 1, 4, ins_A5}, {"AND (HL)", 1, 8, ins_A6}, {"AND A", 1, 4, ins_A7}, {"XOR B", 1, 4, ins_A8}, {"XOR C", 1, 4, ins_A9}, {"XOR D", 1, 4, ins_AA}, {"XOR E", 1, 4, ins_AB}, {"XOR H", 1, 4, ins_AC}, {"XOR L", 1, 4, ins_AD}, {"XOR (HL)", 1, 8, ins_AE}, {"XOR A", 1, 4, ins_AF}, },
-        {{"OR B", 1, 4, ins_B0}, {"OR C", 1, 4, ins_B1}, {"OR D", 1, 4, ins_B2}, {"OR E", 1, 4, ins_B3}, {"OR H", 1, 4, ins_B4}, {"OR L", 1, 4, ins_B5}, {"OR (HL)", 1, 8, ins_B6}, {"OR A", 1, 4, ins_B7}, {"CP B", 1, 4, ins_B8}, {"CP C", 1, 4, ins_B9}, {"CP D", 1, 4, ins_BA}, {"CP E", 1, 4, ins_BB}, {"CP H", 1, 4, ins_BC}, {"CP L", 1, 4, ins_BD}, {"CP (HL)", 1, 8, ins_BE}, {"CP A", 1, 4, ins_BF}, },
-        {{"RET NZ", 1, 20, ins_C0}, {"POP BC", 1, 12, ins_C1}, {"JP NZ,a16", 3, 16, ins_C2}, {"JP a16", 3, 16, ins_C3}, {"CALL NZ,a16", 3, 24, ins_C4}, {"PUSH BC", 1, 16, ins_C5}, {"ADD A,d8", 2, 8, ins_C6}, {"RST 00H", 1, 16, ins_C7}, {"RET Z", 1, 20, ins_C8}, {"RET", 1, 16, ins_C9}, {"JP Z,a16", 3, 16, ins_CA}, {"PREFIX", 1, 4, ins_CB}, {"CALL Z,a16", 3, 24, ins_CC}, {"CALL a16", 3, 24, ins_CD}, {"ADC A,d8", 2, 8, ins_CE}, {"RST 08H", 1, 16, ins_CF}, },
-        {{"RET NC", 1, 20, ins_D0}, {"POP DE", 1, 12, ins_D1}, {"JP NC,a16", 3, 16, ins_D2}, {"ILLEGAL_D3", 1, 4, ins_D3}, {"CALL NC,a16", 3, 24, ins_D4}, {"PUSH DE", 1, 16, ins_D5}, {"SUB d8", 2, 8, ins_D6}, {"RST 10H", 1, 16, ins_D7}, {"RET C", 1, 20, ins_D8}, {"RETI", 1, 16, ins_D9}, {"JP C,a16", 3, 16, ins_DA}, {"ILLEGAL_DB", 1, 4, ins_DB}, {"CALL C,a16", 3, 24, ins_DC}, {"ILLEGAL_DD", 1, 4, ins_DD}, {"SBC A,d8", 2, 8, ins_DE}, {"RST 18H", 1, 16, ins_DF}, },
-        {{"LDH (a8),A", 2, 12, ins_E0}, {"POP HL", 1, 12, ins_E1}, {"LD ($FF00+C),A", 1, 8, ins_E2}, {"ILLEGAL_E3", 1, 4, ins_E3}, {"ILLEGAL_E4", 1, 4, ins_E4}, {"PUSH HL", 1, 16, ins_E5}, {"AND d8", 2, 8, ins_E6}, {"RST 20H", 1, 16, ins_E7}, {"ADD SP,r8", 2, 16, ins_E8}, {"JP HL", 1, 4, ins_E9}, {"LD (a16),A", 3, 16, ins_EA}, {"ILLEGAL_EB", 1, 4, ins_EB}, {"ILLEGAL_EC", 1, 4, ins_EC}, {"ILLEGAL_ED", 1, 4, ins_ED}, {"XOR d8", 2, 8, ins_EE}, {"RST 28H", 1, 16, ins_EF}, },
-        {{"LDH A,(a8)", 2, 12, ins_F0}, {"POP AF", 1, 12, ins_F1}, {"LD A,($FF00+C)", 1, 8, ins_F2}, {"DI", 1, 4, ins_F3}, {"ILLEGAL_F4", 1, 4, ins_F4}, {"PUSH AF", 1, 16, ins_F5}, {"OR d8", 2, 8, ins_F6}, {"RST 30H", 1, 16, ins_F7}, {"LD HL,SP+r8", 2, 12, ins_F8}, {"LD SP,HL", 1, 8, ins_F9}, {"LD A,(a16)", 3, 16, ins_FA}, {"EI", 1, 4, ins_FB}, {"ILLEGAL_FC", 1, 4, ins_FC}, {"ILLEGAL_FD", 1, 4, ins_FD}, {"CP d8", 2, 8, ins_FE}, {"RST 38H", 1, 16, ins_FF}}
-};
-
-const CPUInstruction lookup_cb[0x10][0x10] = {
-        {{"RLC B", 2, 8, ins_CB_00}, {"RLC C", 2, 8, ins_CB_01}, {"RLC D", 2, 8, ins_CB_02}, {"RLC E", 2, 8, ins_CB_03}, {"RLC H", 2, 8, ins_CB_04}, {"RLC L", 2, 8, ins_CB_05}, {"RLC (HL)", 2, 16, ins_CB_06}, {"RLC A", 2, 8, ins_CB_07}, {"RRC B", 2, 8, ins_CB_08}, {"RRC C", 2, 8, ins_CB_09}, {"RRC D", 2, 8, ins_CB_0A}, {"RRC E", 2, 8, ins_CB_0B}, {"RRC H", 2, 8, ins_CB_0C}, {"RRC L", 2, 8, ins_CB_0D}, {"RRC (HL)", 2, 16, ins_CB_0E}, {"RRC A", 2, 8, ins_CB_0F}, },
-        {{"RL B", 2, 8, ins_CB_10}, {"RL C", 2, 8, ins_CB_11}, {"RL D", 2, 8, ins_CB_12}, {"RL E", 2, 8, ins_CB_13}, {"RL H", 2, 8, ins_CB_14}, {"RL L", 2, 8, ins_CB_15}, {"RL (HL)", 2, 16, ins_CB_16}, {"RL A", 2, 8, ins_CB_17}, {"RR B", 2, 8, ins_CB_18}, {"RR C", 2, 8, ins_CB_19}, {"RR D", 2, 8, ins_CB_1A}, {"RR E", 2, 8, ins_CB_1B}, {"RR H", 2, 8, ins_CB_1C}, {"RR L", 2, 8, ins_CB_1D}, {"RR (HL)", 2, 16, ins_CB_1E}, {"RR A", 2, 8, ins_CB_1F}, },
-        {{"SLA B", 2, 8, ins_CB_20}, {"SLA C", 2, 8, ins_CB_21}, {"SLA D", 2, 8, ins_CB_22}, {"SLA E", 2, 8, ins_CB_23}, {"SLA H", 2, 8, ins_CB_24}, {"SLA L", 2, 8, ins_CB_25}, {"SLA (HL)", 2, 16, ins_CB_26}, {"SLA A", 2, 8, ins_CB_27}, {"SRA B", 2, 8, ins_CB_28}, {"SRA C", 2, 8, ins_CB_29}, {"SRA D", 2, 8, ins_CB_2A}, {"SRA E", 2, 8, ins_CB_2B}, {"SRA H", 2, 8, ins_CB_2C}, {"SRA L", 2, 8, ins_CB_2D}, {"SRA (HL)", 2, 16, ins_CB_2E}, {"SRA A", 2, 8, ins_CB_2F}, },
-        {{"SWAP B", 2, 8, ins_CB_30}, {"SWAP C", 2, 8, ins_CB_31}, {"SWAP D", 2, 8, ins_CB_32}, {"SWAP E", 2, 8, ins_CB_33}, {"SWAP H", 2, 8, ins_CB_34}, {"SWAP L", 2, 8, ins_CB_35}, {"SWAP (HL)", 2, 16, ins_CB_36}, {"SWAP A", 2, 8, ins_CB_37}, {"SRL B", 2, 8, ins_CB_38}, {"SRL C", 2, 8, ins_CB_39}, {"SRL D", 2, 8, ins_CB_3A}, {"SRL E", 2, 8, ins_CB_3B}, {"SRL H", 2, 8, ins_CB_3C}, {"SRL L", 2, 8, ins_CB_3D}, {"SRL (HL)", 2, 16, ins_CB_3E}, {"SRL A", 2, 8, ins_CB_3F}, },
-        {{"BIT 0,B", 2, 8, ins_CB_40}, {"BIT 0,C", 2, 8, ins_CB_41}, {"BIT 0,D", 2, 8, ins_CB_42}, {"BIT 0,E", 2, 8, ins_CB_43}, {"BIT 0,H", 2, 8, ins_CB_44}, {"BIT 0,L", 2, 8, ins_CB_45}, {"BIT 0,(HL)", 2, 12, ins_CB_46}, {"BIT 0,A", 2, 8, ins_CB_47}, {"BIT 1,B", 2, 8, ins_CB_48}, {"BIT 1,C", 2, 8, ins_CB_49}, {"BIT 1,D", 2, 8, ins_CB_4A}, {"BIT 1,E", 2, 8, ins_CB_4B}, {"BIT 1,H", 2, 8, ins_CB_4C}, {"BIT 1,L", 2, 8, ins_CB_4D}, {"BIT 1,(HL)", 2, 12, ins_CB_4E}, {"BIT 1,A", 2, 8, ins_CB_4F}, },
-        {{"BIT 2,B", 2, 8, ins_CB_50}, {"BIT 2,C", 2, 8, ins_CB_51}, {"BIT 2,D", 2, 8, ins_CB_52}, {"BIT 2,E", 2, 8, ins_CB_53}, {"BIT 2,H", 2, 8, ins_CB_54}, {"BIT 2,L", 2, 8, ins_CB_55}, {"BIT 2,(HL)", 2, 12, ins_CB_56}, {"BIT 2,A", 2, 8, ins_CB_57}, {"BIT 3,B", 2, 8, ins_CB_58}, {"BIT 3,C", 2, 8, ins_CB_59}, {"BIT 3,D", 2, 8, ins_CB_5A}, {"BIT 3,E", 2, 8, ins_CB_5B}, {"BIT 3,H", 2, 8, ins_CB_5C}, {"BIT 3,L", 2, 8, ins_CB_5D}, {"BIT 3,(HL)", 2, 12, ins_CB_5E}, {"BIT 3,A", 2, 8, ins_CB_5F}, },
-        {{"BIT 4,B", 2, 8, ins_CB_60}, {"BIT 4,C", 2, 8, ins_CB_61}, {"BIT 4,D", 2, 8, ins_CB_62}, {"BIT 4,E", 2, 8, ins_CB_63}, {"BIT 4,H", 2, 8, ins_CB_64}, {"BIT 4,L", 2, 8, ins_CB_65}, {"BIT 4,(HL)", 2, 12, ins_CB_66}, {"BIT 4,A", 2, 8, ins_CB_67}, {"BIT 5,B", 2, 8, ins_CB_68}, {"BIT 5,C", 2, 8, ins_CB_69}, {"BIT 5,D", 2, 8, ins_CB_6A}, {"BIT 5,E", 2, 8, ins_CB_6B}, {"BIT 5,H", 2, 8, ins_CB_6C}, {"BIT 5,L", 2, 8, ins_CB_6D}, {"BIT 5,(HL)", 2, 12, ins_CB_6E}, {"BIT 5,A", 2, 8, ins_CB_6F}, },
-        {{"BIT 6,B", 2, 8, ins_CB_70}, {"BIT 6,C", 2, 8, ins_CB_71}, {"BIT 6,D", 2, 8, ins_CB_72}, {"BIT 6,E", 2, 8, ins_CB_73}, {"BIT 6,H", 2, 8, ins_CB_74}, {"BIT 6,L", 2, 8, ins_CB_75}, {"BIT 6,(HL)", 2, 12, ins_CB_76}, {"BIT 6,A", 2, 8, ins_CB_77}, {"BIT 7,B", 2, 8, ins_CB_78}, {"BIT 7,C", 2, 8, ins_CB_79}, {"BIT 7,D", 2, 8, ins_CB_7A}, {"BIT 7,E", 2, 8, ins_CB_7B}, {"BIT 7,H", 2, 8, ins_CB_7C}, {"BIT 7,L", 2, 8, ins_CB_7D}, {"BIT 7,(HL)", 2, 12, ins_CB_7E}, {"BIT 7,A", 2, 8, ins_CB_7F}, },
-        {{"RES 0,B", 2, 8, ins_CB_80}, {"RES 0,C", 2, 8, ins_CB_81}, {"RES 0,D", 2, 8, ins_CB_82}, {"RES 0,E", 2, 8, ins_CB_83}, {"RES 0,H", 2, 8, ins_CB_84}, {"RES 0,L", 2, 8, ins_CB_85}, {"RES 0,(HL)", 2, 16, ins_CB_86}, {"RES 0,A", 2, 8, ins_CB_87}, {"RES 1,B", 2, 8, ins_CB_88}, {"RES 1,C", 2, 8, ins_CB_89}, {"RES 1,D", 2, 8, ins_CB_8A}, {"RES 1,E", 2, 8, ins_CB_8B}, {"RES 1,H", 2, 8, ins_CB_8C}, {"RES 1,L", 2, 8, ins_CB_8D}, {"RES 1,(HL)", 2, 16, ins_CB_8E}, {"RES 1,A", 2, 8, ins_CB_8F}, },
-        {{"RES 2,B", 2, 8, ins_CB_90}, {"RES 2,C", 2, 8, ins_CB_91}, {"RES 2,D", 2, 8, ins_CB_92}, {"RES 2,E", 2, 8, ins_CB_93}, {"RES 2,H", 2, 8, ins_CB_94}, {"RES 2,L", 2, 8, ins_CB_95}, {"RES 2,(HL)", 2, 16, ins_CB_96}, {"RES 2,A", 2, 8, ins_CB_97}, {"RES 3,B", 2, 8, ins_CB_98}, {"RES 3,C", 2, 8, ins_CB_99}, {"RES 3,D", 2, 8, ins_CB_9A}, {"RES 3,E", 2, 8, ins_CB_9B}, {"RES 3,H", 2, 8, ins_CB_9C}, {"RES 3,L", 2, 8, ins_CB_9D}, {"RES 3,(HL)", 2, 16, ins_CB_9E}, {"RES 3,A", 2, 8, ins_CB_9F}, },
-        {{"RES 4,B", 2, 8, ins_CB_A0}, {"RES 4,C", 2, 8, ins_CB_A1}, {"RES 4,D", 2, 8, ins_CB_A2}, {"RES 4,E", 2, 8, ins_CB_A3}, {"RES 4,H", 2, 8, ins_CB_A4}, {"RES 4,L", 2, 8, ins_CB_A5}, {"RES 4,(HL)", 2, 16, ins_CB_A6}, {"RES 4,A", 2, 8, ins_CB_A7}, {"RES 5,B", 2, 8, ins_CB_A8}, {"RES 5,C", 2, 8, ins_CB_A9}, {"RES 5,D", 2, 8, ins_CB_AA}, {"RES 5,E", 2, 8, ins_CB_AB}, {"RES 5,H", 2, 8, ins_CB_AC}, {"RES 5,L", 2, 8, ins_CB_AD}, {"RES 5,(HL)", 2, 16, ins_CB_AE}, {"RES 5,A", 2, 8, ins_CB_AF}, },
-        {{"RES 6,B", 2, 8, ins_CB_B0}, {"RES 6,C", 2, 8, ins_CB_B1}, {"RES 6,D", 2, 8, ins_CB_B2}, {"RES 6,E", 2, 8, ins_CB_B3}, {"RES 6,H", 2, 8, ins_CB_B4}, {"RES 6,L", 2, 8, ins_CB_B5}, {"RES 6,(HL)", 2, 16, ins_CB_B6}, {"RES 6,A", 2, 8, ins_CB_B7}, {"RES 7,B", 2, 8, ins_CB_B8}, {"RES 7,C", 2, 8, ins_CB_B9}, {"RES 7,D", 2, 8, ins_CB_BA}, {"RES 7,E", 2, 8, ins_CB_BB}, {"RES 7,H", 2, 8, ins_CB_BC}, {"RES 7,L", 2, 8, ins_CB_BD}, {"RES 7,(HL)", 2, 16, ins_CB_BE}, {"RES 7,A", 2, 8, ins_CB_BF}, },
-        {{"SET 0,B", 2, 8, ins_CB_C0}, {"SET 0,C", 2, 8, ins_CB_C1}, {"SET 0,D", 2, 8, ins_CB_C2}, {"SET 0,E", 2, 8, ins_CB_C3}, {"SET 0,H", 2, 8, ins_CB_C4}, {"SET 0,L", 2, 8, ins_CB_C5}, {"SET 0,(HL)", 2, 16, ins_CB_C6}, {"SET 0,A", 2, 8, ins_CB_C7}, {"SET 1,B", 2, 8, ins_CB_C8}, {"SET 1,C", 2, 8, ins_CB_C9}, {"SET 1,D", 2, 8, ins_CB_CA}, {"SET 1,E", 2, 8, ins_CB_CB}, {"SET 1,H", 2, 8, ins_CB_CC}, {"SET 1,L", 2, 8, ins_CB_CD}, {"SET 1,(HL)", 2, 16, ins_CB_CE}, {"SET 1,A", 2, 8, ins_CB_CF}, },
-        {{"SET 2,B", 2, 8, ins_CB_D0}, {"SET 2,C", 2, 8, ins_CB_D1}, {"SET 2,D", 2, 8, ins_CB_D2}, {"SET 2,E", 2, 8, ins_CB_D3}, {"SET 2,H", 2, 8, ins_CB_D4}, {"SET 2,L", 2, 8, ins_CB_D5}, {"SET 2,(HL)", 2, 16, ins_CB_D6}, {"SET 2,A", 2, 8, ins_CB_D7}, {"SET 3,B", 2, 8, ins_CB_D8}, {"SET 3,C", 2, 8, ins_CB_D9}, {"SET 3,D", 2, 8, ins_CB_DA}, {"SET 3,E", 2, 8, ins_CB_DB}, {"SET 3,H", 2, 8, ins_CB_DC}, {"SET 3,L", 2, 8, ins_CB_DD}, {"SET 3,(HL)", 2, 16, ins_CB_DE}, {"SET 3,A", 2, 8, ins_CB_DF}, },
-        {{"SET 4,B", 2, 8, ins_CB_E0}, {"SET 4,C", 2, 8, ins_CB_E1}, {"SET 4,D", 2, 8, ins_CB_E2}, {"SET 4,E", 2, 8, ins_CB_E3}, {"SET 4,H", 2, 8, ins_CB_E4}, {"SET 4,L", 2, 8, ins_CB_E5}, {"SET 4,(HL)", 2, 16, ins_CB_E6}, {"SET 4,A", 2, 8, ins_CB_E7}, {"SET 5,B", 2, 8, ins_CB_E8}, {"SET 5,C", 2, 8, ins_CB_E9}, {"SET 5,D", 2, 8, ins_CB_EA}, {"SET 5,E", 2, 8, ins_CB_EB}, {"SET 5,H", 2, 8, ins_CB_EC}, {"SET 5,L", 2, 8, ins_CB_ED}, {"SET 5,(HL)", 2, 16, ins_CB_EE}, {"SET 5,A", 2, 8, ins_CB_EF}, },
-        {{"SET 6,B", 2, 8, ins_CB_F0}, {"SET 6,C", 2, 8, ins_CB_F1}, {"SET 6,D", 2, 8, ins_CB_F2}, {"SET 6,E", 2, 8, ins_CB_F3}, {"SET 6,H", 2, 8, ins_CB_F4}, {"SET 6,L", 2, 8, ins_CB_F5}, {"SET 6,(HL)", 2, 16, ins_CB_F6}, {"SET 6,A", 2, 8, ins_CB_F7}, {"SET 7,B", 2, 8, ins_CB_F8}, {"SET 7,C", 2, 8, ins_CB_F9}, {"SET 7,D", 2, 8, ins_CB_FA}, {"SET 7,E", 2, 8, ins_CB_FB}, {"SET 7,H", 2, 8, ins_CB_FC}, {"SET 7,L", 2, 8, ins_CB_FD}, {"SET 7,(HL)", 2, 16, ins_CB_FE}, {"SET 7,A", 2, 8, ins_CB_FF},}
-};
-
-const CPUInstruction *cpu_fetch_instruction(u8 ins){
-    return &lookup[left_nibble(ins)][right_nibble(ins)];
-}
-
-const CPUInstruction *cpu_fetch_instruction_cb(u8 a0){
-    return &lookup_cb[left_nibble(a0)][right_nibble(a0)];
 }

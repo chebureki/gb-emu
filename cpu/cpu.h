@@ -20,8 +20,20 @@
 #define CPU_SUBTRACTIONFLAG 1<<CPU_SUBTRACTIONFLAG_POS
 #define CPU_ZEROFLAG 1<<CPU_ZEROFLAG_POS
 
+enum InterruptFlag{
+    IF_VBLANK = 1<<0,
+    IF_LCD_STAT = 1<<1,
+    IF_TIMER = 1<<2,
+    IF_SERIAL = 1<<3,
+    IF_JOYPAD = 1<<4,
+};
+
 typedef struct {
     u16 extra_cycles;
+
+    u8 IME; //interrupt master enable flag
+    u8 IE; //interrupt enable
+    u8 IF; //interrupt flags
 
     u16 AF;
     u16 BC;

@@ -12,6 +12,7 @@ typedef struct {
     void (*callback)(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2);
 } CPUInstruction;
 
+
 const CPUInstruction *cpu_fetch_instruction(u8 ins);
 const CPUInstruction *cpu_fetch_instruction_cb(u8 a0);
 

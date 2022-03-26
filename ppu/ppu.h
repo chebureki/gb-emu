@@ -21,6 +21,13 @@
 
 #define FIFO_CAP 16
 
+enum PPUState{
+    HBLANK=0,
+    VBLANK=1,
+    OAM_SEARCH=2,
+    LCD_DATA_TRANSFER=3
+};
+
 typedef struct {
     u8 y_pos;
     u8 x_pos;

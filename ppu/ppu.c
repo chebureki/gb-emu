@@ -17,13 +17,6 @@ u8 color_from_palette(u8 p, u8 i){
     return (p&(3<<(2*i)))>>(2*i);
 }
 
-enum PPUState{
-    HBLANK=0,
-    VBLANK=1,
-    OAM_SEARCH=2,
-    LCD_DATA_TRANSFER=3
-};
-
 enum SpriteFlags{
     OBJ_TO_BG_PRIORITY = 1<<7,
     Y_FLIP = 1<<6,
