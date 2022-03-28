@@ -102,6 +102,7 @@ void cartridge_bank0_bus_write(void *_c, u16 addr, u16 abs_addr, u8 val){
         c->selected_rom_bank = val;
         return;
     }
+    log_fatal("NO");
     log_error("rom0 write?: %04x %2x 0a:%d",abs_addr,val,(val&0x0f)==0x0a);
 
     //cartridge->data[addr];

@@ -18,6 +18,9 @@ u8 workram_bus_read(void *_wr, u16 addr, u16 abs_addr){
 
 void workram_bus_write(void *_wr, u16 addr, u16 abs_addr, u8 val){
     WorkRAM *wr = (WorkRAM*)_wr;
+    if(abs_addr >= 0xd000){
+        log_fatal("asdf");
+    }
     wr->memory[addr] = val;
 }
 

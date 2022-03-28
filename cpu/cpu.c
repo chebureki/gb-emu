@@ -48,9 +48,17 @@ void cpu_clock(CPU *cpu){
     cpu->extra_cycles = cpu_next_ins(cpu);
 }
 
-#include <unistd.h>
+//TODO: remove this function later down the line
+void cpu_dump_state(CPU *cpu, char dst[128], char *mnemonic,u8 bytes[4]){
+    char dis[16];
+    sprintf(dis,mnemonic, bytes[1],bytes[2],bytes[3]);
+    sprintf(dst,"%02x%02x%02x%02x pc %04x: %s | AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",
+            bytes[0],bytes[1],bytes[2],bytes[3],
+            cpu->PC,dis,
+            cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP
+            );
+}
 
-int flag = 0;
 int cpu_next_ins(CPU* cpu){
 
     //an instruction is 4 bytes long at most
@@ -75,12 +83,12 @@ int cpu_next_ins(CPU* cpu){
         bytes[i] = bus_read(cpu->bus,cpu->PC+i);
     }
 
-    char debug[16];
-    sprintf(debug,ins->mnemonic_format, bytes[1],bytes[2],bytes[3]);
-    //if(cpu->PC >= 0x0200 && 0x220 >= cpu->PC)
-    //    log_debug("%02x%02x%02x%02x pc %04x: %s AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",bytes[0],bytes[1],bytes[2],bytes[3],cpu->PC,debug,cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP);
-    //log_debug("%02x%02x%02x%02x pc %04x: %s AF: %04x BC: %04x DE: %04x HL: %04x SP: %04x",bytes[0],bytes[1],bytes[2],bytes[3],cpu->PC,debug,cpu->AF,cpu->BC,cpu->DE,cpu->HL,cpu->SP);
 
+    char debug[128];
+    if(cpu->PC >= 0xc000){
+        cpu_dump_state(cpu,debug,ins->mnemonic_format,bytes);
+        log_info("%s",debug);
+    }
 
 
     cpu->PC+=ins->length;

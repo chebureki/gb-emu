@@ -1181,7 +1181,8 @@ void ins_AD(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //XOR (HL) | Z:Z N:0 H:0 C:0
 void ins_AE(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    A_SET(A()^M_GET(HL()));
+    u8 m = M_GET(HL());
+    A_SET(A()^m);
     FZ_SET(A()==0);FN_SET(0);FH_SET(0);FN_SET(0);
 }
 
@@ -1598,7 +1599,7 @@ void ins_F1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     AF_SET(stack_pop_u16(cpu));
 }
 
-//LD A,($ff0++C) | Z:- N:- H:- C:-
+//LD A,($ff00+C) | Z:- N:- H:- C:-
 void ins_F2(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     A_SET(M_GET(0xff00+C()));
 }

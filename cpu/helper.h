@@ -25,10 +25,11 @@
 
 #define D8() (a0)
 //signed 8 bits
-#define R8() (s8)D8()
+#define R8() ((s8)D8())
 
 #define AF() (cpu->AF)
-#define AF_SET(v) cpu->AF = v
+//dont set least significant nibble in F
+#define AF_SET(v) cpu->AF = ((v)&0xfff0)
 
 #define BC() (cpu->BC)
 #define BC_SET(v) cpu->BC = v
@@ -41,7 +42,8 @@
 #define A() (LO_GET(cpu->AF))
 #define F() (HI_GET(cpu->AF))
 #define A_SET(v) LO_SET(cpu->AF,v)
-#define F_SET(v) HI_SET(cpu->AF,v)
+//least significant nibble is never set
+#define F_SET(v) HI_SET(cpu->AF,((v)&0xf0))
 
 #define B() (LO_GET(cpu->BC))
 #define C() (HI_GET(cpu->BC))
@@ -86,7 +88,7 @@
 #define CARRY_8C(a,b,c) (((u16)((u8)a)+(u16)((u8)b)+(u16)((u8)c))>0xff)
 #define CARRY_16C(a,b,c) (((u32)a+(u32)b+(u32)c)>0xffff)
 
-#define CARRY_4_SUB(a,b) (((s16)a-(s16)b)<0)
+#define CARRY_4_SUB(a,b) (((s16)(a&0x0f)-(s16)(b&0x0f))<0)
 #define CARRY_8_SUB(a,b) (((s16)a-(s16)b)<0)
 #define CARRY_16_SUB(a,b) (((s32)a-(s32)b)<0)
 
