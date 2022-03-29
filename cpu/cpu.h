@@ -30,10 +30,14 @@ typedef struct {
     u8 IE; //interrupt enable
     u8 IF; //interrupt flags
 
-    u16 AF;
-    u16 BC;
-    u16 DE;
-    u16 HL;
+    u8 A;
+    u8 F;
+    u8 B;
+    u8 C;
+    u8 D;
+    u8 E;
+    u8 H;
+    u8 L;
     u16 SP;
     u16 PC;
 

@@ -4,16 +4,18 @@
 #include "gui/gui.h"
 #include "gui/input.h"
 
-#include <unistd.h>
-
 #define CYCLES_IN_MS 4100
 
-int main() {
+int main(int argc, char **argv) {
+    if(argc < 2){
+        log_info("usage: gb_emu <path-to-rom>");
+        return 0;
+    }
+    //TODO: read from from cli options, e.g. gb-emu -i foo.gb
+    char *rom_path = argv[1];
     gui_init();
-        Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/gb-test-roms/cpu_instrs/individual/03-op sp,hl.gb");
-    //Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/gb-test-roms/cpu_instrs/cpu_instrs.gb");
-    //Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/gb-test-roms/cpu_instrs/cpu_instrs.gb");
-    //Cartridge *cartridge = cartridge_from_file("/home/cheb/Documents/gb-emu/roms/tetris.gb");
+    Cartridge *cartridge = cartridge_from_file(rom_path);
+
     if(!cartridge){
         log_fatal("failed to open cartridge");
     }

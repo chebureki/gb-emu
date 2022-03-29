@@ -1,16 +1,15 @@
 #include "cpu.h"
 #include "../common/log.h"
+#include "../common/bitwise.h"
 
 #ifndef GB_EMU_HELPER_H
 #define GB_EMU_HELPER_H
 //some helper macros
 
-#define LO_GET(a) (u8)((a&0xff00)>>8)
-#define HI_GET(a) (u8)(a&0x00ff)
+#define HI(v) ((u8)((v&0xff00)>>8))
+#define LO(v) ((u8)((v&0x00ff)>>0))
 
-#define LO_SET(a,v) a = (a&0x00ff) | (((u8)(v&0xff))<<8)
-#define HI_SET(a,v) a = (a&0xff00) | ((u8)(v&0xff))
-
+//TODO: this is NZ ffs
 //one or zero, 255 => 1, 5 => 1, 0=>0
 #define OZ(v) ((v)!=0)
 
@@ -27,44 +26,39 @@
 //signed 8 bits
 #define R8() ((s8)D8())
 
-#define AF() (cpu->AF)
-//dont set least significant nibble in F
-#define AF_SET(v) cpu->AF = ((v)&0xfff0)
+#define A() (cpu->A)
+#define A_SET(v) (cpu->A=(v))
+#define F() (cpu->F)
+//lower nibble is discarded in F
+#define F_SET(v) (cpu->F=(v&0xf0))
+#define AF() (U16(cpu->F,cpu->A))
+#define AF_SET(v) A_SET(HI(v));F_SET(LO(v));
 
-#define BC() (cpu->BC)
-#define BC_SET(v) cpu->BC = v
+#define B() (cpu->B)
+#define B_SET(v) (cpu->B=(v))
+#define C() (cpu->C)
+#define C_SET(v) (cpu->C=(v))
+#define BC() (U16(cpu->C,cpu->B))
+#define BC_SET(v) B_SET(HI(v));C_SET(LO(v))
 
-#define DE() (cpu->DE)
-#define DE_SET(v) cpu->DE = v
+#define D() (cpu->D)
+#define D_SET(v) (cpu->D=(v))
+#define E() (cpu->E)
+#define E_SET(v) (cpu->E=(v))
+#define DE() (U16(cpu->E,cpu->D))
+#define DE_SET(v) D_SET(HI(v));E_SET(LO(v))
 
-#define HL() (cpu->HL)
-#define HL_SET(v) cpu->HL = v
-#define A() (LO_GET(cpu->AF))
-#define F() (HI_GET(cpu->AF))
-#define A_SET(v) LO_SET(cpu->AF,v)
-//least significant nibble is never set
-#define F_SET(v) HI_SET(cpu->AF,((v)&0xf0))
-
-#define B() (LO_GET(cpu->BC))
-#define C() (HI_GET(cpu->BC))
-#define B_SET(v) LO_SET(cpu->BC,v)
-#define C_SET(v) HI_SET(cpu->BC,v)
-
-#define D() (LO_GET(cpu->DE))
-#define E() (HI_GET(cpu->DE))
-#define D_SET(v) LO_SET(cpu->DE,v)
-#define E_SET(v) HI_SET(cpu->DE,v)
-
-#define H() (LO_GET(cpu->HL))
-#define L() (HI_GET(cpu->HL))
-#define H_SET(v) (LO_SET(cpu->HL,v))
-#define L_SET(v) (HI_SET(cpu->HL,v))
-
+#define H() (cpu->H)
+#define H_SET(v) (cpu->H=(v))
+#define L() (cpu->L)
+#define L_SET(v) (cpu->L=(v))
+#define HL() (U16(cpu->L,cpu->H))
+#define HL_SET(v) H_SET(HI(v));L_SET(LO(v))
 #define SP() (cpu->SP)
-#define SP_SET(v) cpu->SP=v
+#define SP_SET(v) (cpu->SP=v)
 
 #define PC() (cpu->PC)
-#define PC_SET(v) cpu->PC=v
+#define PC_SET(v) (cpu->PC=v)
 
 //flags
 #define FZ() (((F())&CPU_ZEROFLAG)>>CPU_ZEROFLAG_POS)

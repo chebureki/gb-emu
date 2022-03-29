@@ -102,7 +102,7 @@ void cartridge_bank0_bus_write(void *_c, u16 addr, u16 abs_addr, u8 val){
         c->selected_rom_bank = val;
         return;
     }
-    log_fatal("NO");
+    //log_fatal("NO");
     log_error("rom0 write?: %04x %2x 0a:%d",abs_addr,val,(val&0x0f)==0x0a);
 
     //cartridge->data[addr];
@@ -119,7 +119,7 @@ u8 cartridge_bankn_bus_read(void *_c, u16 addr, u16 abs_addr){
 void cartridge_bankn_bus_write(void *_c, u16 addr, u16 abs_addr, u8 val){
     Cartridge *c = (Cartridge*)_c;
     if(0x6000<=abs_addr && abs_addr<=0x7fff ){
-        log_fatal("banking modes not implemented");
+        log_error("banking modes not implemented");
         //c->selected_rom_bank=val;
         //log_error("did not switch banking mode for testing purposes");
         return;

@@ -6,7 +6,7 @@ u8 apu_reg_bus_read(void *_a, u16 addr, u16 abs_addr){
 }
 
 void apu_reg_bus_write(void *_a, u16 addr, u16 abs_addr, u8 val){
-    log_error("ignoring apu reg write");
+    log_error("ignoring apu reg write at %04x",abs_addr);
 }
 
 

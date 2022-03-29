@@ -1297,7 +1297,8 @@ void ins_C0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //POP BC | Z:- N:- H:- C:-
 void ins_C1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    BC_SET(stack_pop_u16(cpu));
+    u16 v = stack_pop_u16(cpu);
+    BC_SET(v);
 }
 
 //JP NZ,a16 | Z:- N:- H:- C:-
@@ -1404,7 +1405,8 @@ void ins_D0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //POP DE | Z:- N:- H:- C:-
 void ins_D1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    DE_SET(stack_pop_u16(cpu));
+    u16 v =stack_pop_u16(cpu);
+    DE_SET(v);
 }
 
 //JP NC,a16 | Z:- N:- H:- C:-
@@ -1508,7 +1510,8 @@ void ins_E0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //POP HL | Z:- N:- H:- C:-
 void ins_E1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    HL_SET(stack_pop_u16(cpu));
+    u16 v =stack_pop_u16(cpu);
+    HL_SET(v);
 }
 
 //LD ($FF00+C),A | Z:- N:- H:- C:-
@@ -1596,7 +1599,8 @@ void ins_F0(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //POP AF | Z:Z N:N H:H C:C
 void ins_F1(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    AF_SET(stack_pop_u16(cpu));
+    u16 v =stack_pop_u16(cpu);
+    AF_SET(v);
 }
 
 //LD A,($ff00+C) | Z:- N:- H:- C:-
