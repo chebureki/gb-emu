@@ -18,9 +18,9 @@
 #define M_SET(a,v) bus_write(cpu->bus, a, v)
 
 //d16 is always in the second two bytes
-#define D16() (JU16(a0,a1))
+#define D16() (U16(a0,a1))
 //same for a16
-#define A16() (JU16(a0,a1))
+#define A16() (U16(a0,a1))
 
 #define D8() (a0)
 //signed 8 bits
@@ -61,10 +61,10 @@
 #define PC_SET(v) (cpu->PC=v)
 
 //flags
-#define FZ() (((F())&CPU_ZEROFLAG)>>CPU_ZEROFLAG_POS)
-#define FN() (((F())&CPU_SUBTRACTIONFLAG)>>CPU_SUBTRACTIONFLAG_POS)
-#define FH() (((F())&CPU_HALFCARRYFLAG)>>CPU_HALFCARRYFLAG_POS)
-#define FC() (((F())&CPU_CARRYFLAG)>>CPU_CARRYFLAG_POS)
+#define FZ() (((F())&(CPU_ZEROFLAG))>>CPU_ZEROFLAG_POS)
+#define FN() (((F())&(CPU_SUBTRACTIONFLAG))>>CPU_SUBTRACTIONFLAG_POS)
+#define FH() (((F())&(CPU_HALFCARRYFLAG))>>CPU_HALFCARRYFLAG_POS)
+#define FC() (((F())&(CPU_CARRYFLAG))>>CPU_CARRYFLAG_POS)
 
 
 #define F_TOGGLE(v,f,p) F_SET(F()&(~(f))|((u8)OZ(v)<<((u8)p)))

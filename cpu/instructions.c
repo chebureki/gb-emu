@@ -213,7 +213,8 @@ void ins_19(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //LD A,(DE) | Z:- N:- H:- C:-
 void ins_1A(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    A_SET(M_GET(DE()));
+    u8 v = M_GET(DE());
+    A_SET(v);
 }
 
 //DEC DE | Z:- N:- H:- C:-
@@ -243,7 +244,7 @@ void ins_1E(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //RRA  | Z:0 N:0 H:0 C:C
 void ins_1F(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    u8 c = FC()<<7;
+    u8 c = (FC())<<7;
     FC_SET(A()&1);
     A_SET((A()>>1)|c);
     FZ_SET(0);FN_SET(0);FH_SET(0);
@@ -269,7 +270,8 @@ void ins_22(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //INC HL | Z:- N:- H:- C:-
 void ins_23(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    HL_SET(HL()+1);
+    u16 v =HL()+1;
+    HL_SET(v);
 }
 
 //INC H | Z:Z N:0 H:H C:-
@@ -327,7 +329,8 @@ void ins_29(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
     FH_SET(CARRY_4(HL(),HL()));
     FC_SET(CARRY_16(HL(),HL()));
     FN_SET(0);
-    HL_SET(HL()+HL());
+    u16 hl = HL();
+    HL_SET(hl+hl);
 }
 
 //LD A,(HL+) | Z:- N:- H:- C:-
@@ -1133,7 +1136,8 @@ void ins_A5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //AND (HL) | Z:Z N:0 H:1 C:0
 void ins_A6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    A_SET(A()&M_GET(HL()));
+    u8 v = M_GET(HL());
+    A_SET(A()&v);
     FZ_SET(A()==0);FN_SET(0);FH_SET(1);FN_SET(0);
 }
 
@@ -1536,6 +1540,9 @@ void ins_E5(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //AND d8 | Z:Z N:0 H:1 C:0
 void ins_E6(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
+    if(D8() == 3){
+        log_info("in mothafucking: %04x",cpu->PC);
+    }
     A_SET(A()&D8());
     FZ_SET(A()==0);FN_SET(0);FH_SET(1);FN_SET(0);
 }
@@ -1651,7 +1658,8 @@ void ins_F9(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
 
 //LD A,(a16) | Z:- N:- H:- C:-
 void ins_FA(CPU* cpu, u8 ins,u8 a0, u8 a1, u8 a2){
-    A_SET(M_GET(A16()));
+    u8 v = M_GET(A16());
+    A_SET(v);
 }
 
 //EI  | Z:- N:- H:- C:-

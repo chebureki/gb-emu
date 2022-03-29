@@ -52,7 +52,7 @@ void cpu_clock(CPU *cpu){
 void cpu_dump_state(CPU *cpu, char dst[128], char *mnemonic,u8 bytes[4]){
     char dis[16];
     sprintf(dis,mnemonic, bytes[1],bytes[2],bytes[3]);
-    sprintf(dst,"%02x%02x%02x%02x pc %04x: %s | A: %02x F: %02x B: %02x C: %02x D: %02x E:%02x H: %02x L: %02x SP: %04x",
+    sprintf(dst,"%02x%02x%02x%02x pc %04x: %s | A: %02x F: %08b B: %02x C: %02x D: %02x E:%02x H: %02x L: %02x SP: %04x",
             bytes[0],bytes[1],bytes[2],bytes[3],
             cpu->PC,dis,
             cpu->A, cpu->F, cpu->B, cpu->C, cpu->D, cpu->E, cpu->H, cpu->L,cpu->SP
@@ -85,15 +85,18 @@ int cpu_next_ins(CPU* cpu){
         bytes[i] = bus_read(cpu->bus,cpu->PC+i);
     }
 
-    /*
+
     char debug[128];
-    if(!(cpu->PC >= 0x7 && cpu->PC <= 0xa)){
+    //if((cpu->PC >= 0x100 && cpu->PC <= 0xc2da  )){
+    if((cpu->PC >= 0xC2b1 && cpu->PC <= 0xc2da  )){
         cpu_dump_state(cpu,debug,ins->mnemonic_format,bytes);
         log_info("%s",debug);
-        usleep(1000000);
+        //usleep(1000000);
     }
-     */
-
+    if(cpu->PC == 0xc2da){
+        log_info("ahhh shit here we go again!!");
+        //FZ_SET(1);
+    }
 
 
     cpu->PC+=ins->length;
